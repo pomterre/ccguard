@@ -1,0 +1,22 @@
+{
+  "enforcement": {
+    "mode": "session-wide",
+    "ignoreEmptyLines": true
+  },
+  "whitelist": {
+    "patterns": [
+      "**/node_modules/**",
+      "**/dist/**",
+      "**/*.generated.*",
+      "**/migrations/**"
+    ],
+    "extensions": [
+      ".md",
+      ".lock",
+      ".json"
+    ]
+  },
+  "thresholds": {
+    "allowedPositiveLines": 0
+  }
+}

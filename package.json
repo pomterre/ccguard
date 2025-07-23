@@ -1,0 +1,60 @@
+{
+  "name": "ccguard",
+  "version": "0.1.1",
+  "description": "Automated enforcement of net-negative LOC, complexity constraints, and quality standards for Claude code",
+  "main": "dist/index.js",
+  "bin": {
+    "ccguard": "dist/cli/ccguard.js"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "dev": "tsx watch src/cli/ccguard.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:unit": "vitest run --testPathPattern='^((?!integration).)*\\.test\\.ts$'",
+    "test:integration": "vitest run --testPathPattern=integration",
+    "lint": "eslint src test",
+    "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
+    "typecheck": "tsc --noEmit",
+    "checks": "npm run typecheck && npm run lint && npm run test"
+  },
+  "keywords": [
+    "claude",
+    "code",
+    "loc",
+    "refactoring",
+    "code-quality"
+  ],
+  "author": "Your Name <your.email@example.com>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/pomterre/ccguard.git"
+  },
+  "homepage": "https://github.com/pomterre/ccguard#readme",
+  "bugs": {
+    "url": "https://github.com/pomterre/ccguard/issues"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.0.0",
+    "@types/node": "^20.11.0",
+    "@yao-pkg/pkg": "^6.6.0",
+    "eslint": "^9.0.0",
+    "prettier": "^3.2.4",
+    "tsx": "^4.7.0",
+    "typescript": "^5.3.3",
+    "typescript-eslint": "^8.0.0",
+    "vitest": "^1.2.1"
+  },
+  "dependencies": {
+    "zod": "^3.22.4"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ]
+}

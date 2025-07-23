@@ -1,0 +1,19 @@
+{
+  "enforcement": {
+    "mode": "session-wide",
+    "ignoreEmptyLines": true
+  },
+  "whitelist": {
+    "patterns": [
+      "**/test/**",
+      "**/*.generated.*"
+    ],
+    "extensions": [
+      ".md",
+      ".json"
+    ]
+  },
+  "thresholds": {
+    "allowedPositiveLines": 3
+  }
+}
