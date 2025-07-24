@@ -14,6 +14,15 @@
 <p align="center"><img src="./ccguard-demo.png" alt="CCGuard Blocking Operation"></p>
 <p align="center"><i>CCGuard blocking a file edit that would increase total lines of code</i></p>
 
+<br />
+
+---
+
+<br />
+
+<p align="center"><img src="./ccguard-demo-2.png" alt="CCGuard Blocking Complex Refactoring"></p>
+<p align="center"><i>CCGuard preventing code bloat during refactoring operations</i></p>
+
 ---
 
 ## ✅ Key Benefits
