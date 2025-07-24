@@ -49,6 +49,8 @@ CCGuard requires two hooks to be configured in Claude Code:
 
 #### A. PreToolUse Hook (for LOC enforcement)
 
+> ⚠️ **CRITICAL NOTE**: CCGuard must be the **ONLY** hook configured for PreToolUse events with the `Write|Edit|MultiEdit` matcher. Due to a current Claude Code bug (as of v1.0.58), duplicate hooks for the same tool matcher do not work properly. If you have other hooks for these tools, you must remove them for CCGuard to function correctly.
+
 1. Type `/hooks`
 2. Select `PreToolUse - Before tool execution`
 3. Click `+ Add new matcher...`
