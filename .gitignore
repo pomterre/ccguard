@@ -27,3 +27,6 @@ Thumbs.db
 
 # Session data
 .guard/
+
+# Claude artifacts
+.claude/

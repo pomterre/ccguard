@@ -161,7 +161,7 @@ const b = 2`,
 
   describe('User commands', () => {
     it('should handle on/off commands', async () => {
-      const onCommand = {
+      const offCommand = {
         session_id: 'test-session',
         transcript_path: '/tmp/test',
         hook_event_name: 'UserPromptSubmit',
@@ -170,7 +170,7 @@ const b = 2`,
       }
 
       const configLoader = new TestConfigLoader()
-      const result = await processHookData(JSON.stringify(onCommand), {
+      const result = await processHookData(JSON.stringify(offCommand), {
         storage,
         validator: await createValidator(storage, configLoader),
         configLoader
@@ -213,7 +213,7 @@ const b = 2`,
       })
 
       expect(result.decision).toBe('block')
-      expect(result.reason).toMatch(/CCGuard v\d+\.\d+\.\d+/)
+      expect(result.reason).toMatch(/CCGuard version \d+\.\d+\.\d+/)
     })
 
     it('should show status', async () => {

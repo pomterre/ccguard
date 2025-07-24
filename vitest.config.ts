@@ -1,6 +1,8 @@
 import { defineConfig } from 'vitest/config'
 import path from 'path'
 
+// Note: Vite shows a CJS deprecation warning but this is just informational.
+// The project uses CommonJS modules which work fine for our CLI tool.
 export default defineConfig({
   test: {
     globals: true,

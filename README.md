@@ -185,6 +185,98 @@ Customize CCGuard with `.ccguard.config.json` in your project root:
 
 * **Empty Lines**: Optionally ignore empty lines (default: true)
 
+* **Formatter**: Auto-format code before LOC counting to prevent false positives from compressed/minified code
+  * `enabled`: Enable/disable formatting (default: false)
+  * `commands`: Map file extensions to formatter commands
+  * `timeout`: Max execution time in ms (default: 5000)
+  * `fallbackOnError`: Continue without formatting on error (default: true)
+
+---
+
+## 🎨 Auto-Formatter Support
+
+CCGuard can automatically format code before counting lines, preventing false positives from compressed or minified code. This ensures accurate LOC counting regardless of code style.
+
+### Why Use Formatting?
+
+Without formatting, compressed code can bypass LOC limits:
+```javascript
+// This counts as 1 line but contains multiple statements
+function add(a,b){return a+b}function subtract(a,b){return a-b}function multiply(a,b){return a*b}
+```
+
+With formatting enabled, the same code is properly counted:
+```javascript
+// Now correctly counted as 9 lines
+function add(a, b) {
+  return a + b;
+}
+function subtract(a, b) {
+  return a - b;
+}
+function multiply(a, b) {
+  return a * b;
+}
+```
+
+### Formatter Configuration
+
+Add a `formatter` section to your `.ccguard.config.json`:
+
+```json
+{
+  "formatter": {
+    "enabled": true,
+    "commands": {
+      ".js": { "command": "prettier --stdin-filepath {filepath}" },
+      ".py": { "command": "black - --quiet" },
+      ".rs": { "command": "rustfmt --emit stdout" }
+    },
+    "timeout": 5000,
+    "fallbackOnError": true
+  }
+}
+```
+
+### Supported Formatters
+
+Any formatter that supports stdin/stdout can be used. Common examples:
+
+| Language | Formatter | Command |
+|----------|-----------|---------|
+| JavaScript/TypeScript | Prettier | `prettier --stdin-filepath {filepath}` |
+| Python | Black | `black - --quiet` |
+| Rust | rustfmt | `rustfmt --emit stdout` |
+| Go | gofmt | `gofmt` |
+| Java | google-java-format | `google-java-format -` |
+| C/C++ | clang-format | `clang-format --assume-filename={filepath}` |
+| Ruby | RuboCop | `rubocop --stdin {filepath} --auto-correct --stderr --format quiet` |
+
+### Custom Formatters
+
+You can use any command that reads from stdin and writes to stdout:
+
+```json
+{
+  "formatter": {
+    "enabled": true,
+    "commands": {
+      ".sql": { "command": "sql-formatter --language postgresql" },
+      ".xml": { "command": "xmllint --format -" },
+      ".custom": { "command": "my-custom-formatter --stdin" }
+    }
+  }
+}
+```
+
+### Formatter Notes
+
+- **{filepath}** placeholder is replaced with the actual file path
+- Formatters must read from stdin and write to stdout
+- Failed formatting won't block operations (with `fallbackOnError: true`)
+- Formatting is skipped for whitelisted files
+- Results are cached for performance
+
 ---
 
 ## 💡 Best Practices

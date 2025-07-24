@@ -80,6 +80,13 @@ export const GuardStateSchema = z.object({
   lastUpdated: z.string(),
 })
 
+// Formatter command schema
+const FormatterCommandSchema = z.object({
+  command: z.string(),
+  stdin: z.boolean().optional(),
+  args: z.array(z.string()).optional(),
+})
+
 // Config schema
 export const GuardConfigSchema = z.object({
   enforcement: z.object({
@@ -99,14 +106,28 @@ export const GuardConfigSchema = z.object({
   thresholds: z.object({
     allowedPositiveLines: z.number().default(0),
   }).optional(),
+  formatter: z.object({
+    enabled: z.boolean(),
+    commands: z.record(z.string(), FormatterCommandSchema),
+    timeout: z.number().optional(),
+    fallbackOnError: z.boolean().optional(),
+  }).optional(),
 })
 
-// Type guards
-export const isEditOperation = (op: { tool_name: string }): boolean =>
-  op.tool_name === 'Edit'
+// Additional schemas for remaining types
+export const ValidationResultSchema = z.object({
+  decision: z.enum(['block', 'approve']).nullable().optional(),
+  reason: z.string(),
+})
 
-export const isMultiEditOperation = (op: { tool_name: string }): boolean =>
-  op.tool_name === 'MultiEdit'
+export const LocChangeSchema = z.object({
+  linesAdded: z.number(),
+  linesRemoved: z.number(),
+  netChange: z.number(),
+})
 
-export const isWriteOperation = (op: { tool_name: string }): boolean =>
-  op.tool_name === 'Write'
+export const ContextSchema = z.object({
+  operation: ToolOperationSchema,
+  sessionStats: SessionStatsSchema.nullable().optional(),
+  guardEnabled: z.boolean(),
+})

@@ -1,87 +1,18 @@
-export interface ValidationResult {
-  decision: 'block' | 'approve' | undefined
-  reason: string
-}
+import { z } from 'zod'
+import * as s from './schemas'
 
-export interface Context {
-  operation: ToolOperation
-  sessionStats?: SessionStats | null
-  guardEnabled: boolean
-}
+// Infer types from Zod schemas
+export type SessionStats = z.infer<typeof s.SessionStatsSchema>
+export type GuardState = z.infer<typeof s.GuardStateSchema>
+export type GuardConfig = z.infer<typeof s.GuardConfigSchema>
+export type HookData = z.infer<typeof s.HookDataSchema>
+export type UserPromptSubmit = z.infer<typeof s.UserPromptSubmitSchema>
+export type ToolOperation = z.infer<typeof s.ToolOperationSchema>
+export type EditInput = z.infer<typeof s.EditSchema>
+export type MultiEditInput = z.infer<typeof s.MultiEditSchema>
+export type WriteInput = z.infer<typeof s.WriteSchema>
 
-export interface SessionStats {
-  totalLinesAdded: number
-  totalLinesRemoved: number
-  netChange: number
-  operationCount: number
-  lastUpdated: string
-}
-
-export interface LocChange {
-  linesAdded: number
-  linesRemoved: number
-  netChange: number
-}
-
-export interface ToolOperation {
-  session_id: string
-  hook_event_name: string
-  tool_name: 'Edit' | 'MultiEdit' | 'Write'
-  tool_input: EditInput | MultiEditInput | WriteInput
-}
-
-export interface EditInput {
-  file_path: string
-  old_string: string
-  new_string: string
-  replace_all?: boolean
-}
-
-export interface MultiEditInput {
-  file_path: string
-  edits: Array<{
-    old_string: string
-    new_string: string
-    replace_all?: boolean
-  }>
-}
-
-export interface WriteInput {
-  file_path: string
-  content: string
-}
-
-export interface HookData {
-  session_id: string
-  transcript_path: string
-  hook_event_name: string
-  tool_name: string
-  tool_input?: unknown
-}
-
-export interface UserPromptSubmit {
-  session_id: string
-  transcript_path: string
-  hook_event_name: 'UserPromptSubmit'
-  prompt: string
-  cwd: string
-}
-
-export interface GuardState {
-  enabled: boolean
-  lastUpdated: string
-}
-
-export interface GuardConfig {
-  enforcement: {
-    mode: 'session-wide' | 'per-operation'
-    ignoreEmptyLines: boolean
-  }
-  whitelist: {
-    patterns: string[]
-    extensions: string[]
-  }
-  thresholds?: {
-    allowedPositiveLines: number
-  }
-}
+// All types are now inferred from schemas
+export type ValidationResult = z.infer<typeof s.ValidationResultSchema>
+export type Context = z.infer<typeof s.ContextSchema>
+export type LocChange = z.infer<typeof s.LocChangeSchema>

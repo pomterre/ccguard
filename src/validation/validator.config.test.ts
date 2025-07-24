@@ -64,6 +64,7 @@ describe('Validator with Config', () => {
       const context: Context = {
         operation: {
           session_id: 'test',
+          transcript_path: '/tmp/test',
           hook_event_name: 'PreToolUse',
           tool_name: 'Write',
           tool_input: {
@@ -106,6 +107,7 @@ j`, // 10 lines
       const context: Context = {
         operation: {
           session_id: 'test',
+          transcript_path: '/tmp/test',
           hook_event_name: 'PreToolUse',
           tool_name: 'Write',
           tool_input: {
@@ -147,6 +149,7 @@ c`, // 3 lines, not whitelisted
       const context1: Context = {
         operation: {
           session_id: 'test',
+          transcript_path: '/tmp/test',
           hook_event_name: 'PreToolUse',
           tool_name: 'Write',
           tool_input: {
@@ -165,6 +168,7 @@ b`,
       const context2: Context = {
         operation: {
           session_id: 'test',
+          transcript_path: '/tmp/test',
           hook_event_name: 'PreToolUse',
           tool_name: 'Write',
           tool_input: {
@@ -207,6 +211,7 @@ c`,
       const context1: Context = {
         operation: {
           session_id: 'test',
+          transcript_path: '/tmp/test',
           hook_event_name: 'PreToolUse',
           tool_name: 'Write',
           tool_input: {
@@ -225,6 +230,7 @@ b`,
       const context2: Context = {
         operation: {
           session_id: 'test',
+          transcript_path: '/tmp/test',
           hook_event_name: 'PreToolUse',
           tool_name: 'Write',
           tool_input: {
@@ -269,6 +275,7 @@ b`,
       const context: Context = {
         operation: {
           session_id: 'test',
+          transcript_path: '/tmp/test',
           hook_event_name: 'PreToolUse',
           tool_name: 'Write',
           tool_input: {
@@ -308,6 +315,7 @@ e`, // 5 lines
       const context: Context = {
         operation: {
           session_id: 'test',
+          transcript_path: '/tmp/test',
           hook_event_name: 'PreToolUse',
           tool_name: 'Write',
           tool_input: {
@@ -347,6 +355,7 @@ f`, // 6 lines
       const context: Context = {
         operation: {
           session_id: 'test',
+          transcript_path: '/tmp/test',
           hook_event_name: 'PreToolUse',
           tool_name: 'Edit',
           tool_input: {
@@ -383,6 +392,7 @@ b`, // adds 2 lines, one is empty
       const context: Context = {
         operation: {
           session_id: 'test',
+          transcript_path: '/tmp/test',
           hook_event_name: 'PreToolUse',
           tool_name: 'Edit',
           tool_input: {

@@ -40,7 +40,7 @@ line5`
   })
 
   describe('calculateEditChange', () => {
-    it('should calculate net negative change', () => {
+    it('should calculate net negative change', async () => {
       const counter = new LocCounter()
       
       const input: EditInput = {
@@ -57,13 +57,13 @@ line5`
 }`
       }
       
-      const change = counter.calculateEditChange(input)
+      const change = await counter.calculateEditChange(input)
       expect(change.linesRemoved).toBe(7)
       expect(change.linesAdded).toBe(3)
       expect(change.netChange).toBe(-4)
     })
 
-    it('should calculate net positive change', () => {
+    it('should calculate net positive change', async () => {
       const counter = new LocCounter()
       
       const input: EditInput = {
@@ -74,7 +74,7 @@ const y = 2
 const z = 3`
       }
       
-      const change = counter.calculateEditChange(input)
+      const change = await counter.calculateEditChange(input)
       expect(change.linesRemoved).toBe(1)
       expect(change.linesAdded).toBe(3)
       expect(change.netChange).toBe(2)
@@ -82,7 +82,7 @@ const z = 3`
   })
 
   describe('calculateMultiEditChange', () => {
-    it('should calculate cumulative changes', () => {
+    it('should calculate cumulative changes', async () => {
       const counter = new LocCounter()
       
       const input: MultiEditInput = {
@@ -103,7 +103,7 @@ const c = 3`,
         ]
       }
       
-      const change = counter.calculateMultiEditChange(input)
+      const change = await counter.calculateMultiEditChange(input)
       expect(change.linesRemoved).toBe(6)
       expect(change.linesAdded).toBe(2)
       expect(change.netChange).toBe(-4)
@@ -111,7 +111,7 @@ const c = 3`,
   })
 
   describe('calculateWriteChange', () => {
-    it('should count all lines as added', () => {
+    it('should count all lines as added', async () => {
       const counter = new LocCounter()
       
       const input: WriteInput = {
@@ -121,7 +121,7 @@ const c = 3`,
 }`
       }
       
-      const change = counter.calculateWriteChange(input)
+      const change = await counter.calculateWriteChange(input)
       expect(change.linesAdded).toBe(3)
       expect(change.linesRemoved).toBe(0)
       expect(change.netChange).toBe(3)
@@ -129,7 +129,7 @@ const c = 3`,
   })
 
   describe('calculateChange', () => {
-    it('should handle Edit operations', () => {
+    it('should handle Edit operations', async () => {
       const counter = new LocCounter()
       
       const input: EditInput = {
@@ -138,16 +138,16 @@ const c = 3`,
         new_string: 'new'
       }
       
-      const change = counter.calculateChange('Edit', input)
+      const change = await counter.calculateChange('Edit', input)
       expect(change.netChange).toBe(0)
     })
 
-    it('should throw error for unknown tool', () => {
+    it('should throw error for unknown tool', async () => {
       const counter = new LocCounter()
       
-      expect(() => {
+      await expect(
         counter.calculateChange('UnknownTool', {} as any)
-      }).toThrow('Unknown tool: UnknownTool')
+      ).rejects.toThrow('Unknown tool: UnknownTool')
     })
   })
 })
