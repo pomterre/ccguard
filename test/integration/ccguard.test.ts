@@ -197,6 +197,43 @@ const b = 2`,
       expect(result.decision).toBe('block')
       expect(result.reason).toContain('ENABLED')
     })
+
+    it('should show version', async () => {
+      const versionCommand = {
+        session_id: 'test-session',
+        transcript_path: '/tmp/test',
+        hook_event_name: 'UserPromptSubmit',
+        prompt: 'ccguard version',
+        cwd: '/tmp'
+      }
+
+      const result = await processHookData(JSON.stringify(versionCommand), {
+        storage,
+        validator: await createValidator(storage)
+      })
+
+      expect(result.decision).toBe('block')
+      expect(result.reason).toMatch(/CCGuard v\d+\.\d+\.\d+/)
+    })
+
+    it('should show status', async () => {
+      const statusCommand = {
+        session_id: 'test-session',
+        transcript_path: '/tmp/test',
+        hook_event_name: 'UserPromptSubmit',
+        prompt: 'ccguard status',
+        cwd: '/tmp'
+      }
+
+      const result = await processHookData(JSON.stringify(statusCommand), {
+        storage,
+        validator: await createValidator(storage)
+      })
+
+      expect(result.decision).toBe('block')
+      expect(result.reason).toMatch(/CCGuard is (ENABLED|DISABLED)/)
+      expect(result.reason).toMatch(/Session Statistics:|No operations tracked yet/)
+    })
   })
 
   describe('Session tracking', () => {
