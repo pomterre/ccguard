@@ -101,6 +101,7 @@ ccguard on      # Enable enforcement (default)
 ccguard off     # Disable enforcement
 ccguard status  # Show status and LOC statistics
 ccguard reset   # Reset session statistics
+ccguard version # Show CCGuard version (aliases: v, --version, -v)
 ```
 
 ---
