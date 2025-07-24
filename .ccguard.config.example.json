@@ -18,5 +18,24 @@
   },
   "thresholds": {
     "allowedPositiveLines": 0
+  },
+  "formatter": {
+    "enabled": true,
+    "commands": {
+      ".js": { "command": "prettier --stdin-filepath {filepath}" },
+      ".jsx": { "command": "prettier --stdin-filepath {filepath}" },
+      ".ts": { "command": "prettier --stdin-filepath {filepath}" },
+      ".tsx": { "command": "prettier --stdin-filepath {filepath}" },
+      ".py": { "command": "black - --quiet" },
+      ".rs": { "command": "rustfmt --emit stdout" },
+      ".go": { "command": "gofmt" },
+      ".java": { "command": "google-java-format -" },
+      ".rb": { "command": "rubocop --stdin {filepath} --auto-correct --stderr --format quiet" },
+      ".php": { "command": "php-cs-fixer fix - --quiet" },
+      ".cpp": { "command": "clang-format --assume-filename={filepath}" },
+      ".c": { "command": "clang-format --assume-filename={filepath}" }
+    },
+    "timeout": 5000,
+    "fallbackOnError": true
   }
 }

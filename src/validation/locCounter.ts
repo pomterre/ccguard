@@ -1,10 +1,33 @@
 import { LocChange, EditInput, MultiEditInput, WriteInput } from '../contracts'
+import { Formatter } from '../formatting'
 
 export class LocCounter {
   private ignoreEmptyLines: boolean
+  private formatter?: Formatter
 
-  constructor(options: { ignoreEmptyLines?: boolean } = {}) {
+  constructor(
+    options: { ignoreEmptyLines?: boolean } = {},
+    formatter?: Formatter
+  ) {
     this.ignoreEmptyLines = options.ignoreEmptyLines ?? true
+    this.formatter = formatter
+  }
+
+  /**
+   * Format content if formatter is available
+   */
+  private async formatContent(content: string, filePath: string): Promise<string> {
+    if (!this.formatter || !this.formatter.isSupported(filePath)) {
+      return content
+    }
+    
+    try {
+      return await this.formatter.format(content, filePath)
+    } catch (error) {
+      // If formatting fails, continue with unformatted content
+      console.warn(`Failed to format ${filePath}:`, error)
+      return content
+    }
   }
 
   /**
@@ -12,22 +35,21 @@ export class LocCounter {
    */
   countLines(content: string): number {
     if (!content) return 0
-    
-    const lines = content.split('\n')
-    
-    if (this.ignoreEmptyLines) {
-      return lines.filter(line => line.trim().length > 0).length
-    }
-    
-    return lines.length
+    const matches = content.match(this.ignoreEmptyLines ? /\S.*$/gm : /^/gm)
+    return matches ? matches.length : 0
   }
 
   /**
    * Calculate LOC change for an Edit operation
    */
-  calculateEditChange(input: EditInput): LocChange {
-    const linesRemoved = this.countLines(input.old_string)
-    const linesAdded = this.countLines(input.new_string)
+  async calculateEditChange(input: EditInput): Promise<LocChange> {
+    // For Edit operations, we format the strings independently
+    // since they represent partial content
+    const formattedOld = await this.formatContent(input.old_string, input.file_path)
+    const formattedNew = await this.formatContent(input.new_string, input.file_path)
+    
+    const linesRemoved = this.countLines(formattedOld)
+    const linesAdded = this.countLines(formattedNew)
     
     return {
       linesAdded,
@@ -39,19 +61,13 @@ export class LocCounter {
   /**
    * Calculate LOC change for a MultiEdit operation
    */
-  calculateMultiEditChange(input: MultiEditInput): LocChange {
-    let totalAdded = 0
-    let totalRemoved = 0
-    
-    // Process each edit in sequence
-    for (const edit of input.edits) {
-      const linesRemoved = this.countLines(edit.old_string)
-      const linesAdded = this.countLines(edit.new_string)
-      
-      totalRemoved += linesRemoved
-      totalAdded += linesAdded
-    }
-    
+  async calculateMultiEditChange(input: MultiEditInput): Promise<LocChange> {
+    const results = await Promise.all(input.edits.map(async edit => ({
+      removed: this.countLines(await this.formatContent(edit.old_string, input.file_path)),
+      added: this.countLines(await this.formatContent(edit.new_string, input.file_path))
+    })))
+    const totalRemoved = results.reduce((sum, r) => sum + r.removed, 0)
+    const totalAdded = results.reduce((sum, r) => sum + r.added, 0)
     return {
       linesAdded: totalAdded,
       linesRemoved: totalRemoved,
@@ -62,8 +78,9 @@ export class LocCounter {
   /**
    * Calculate LOC change for a Write operation (new file)
    */
-  calculateWriteChange(input: WriteInput): LocChange {
-    const linesAdded = this.countLines(input.content)
+  async calculateWriteChange(input: WriteInput): Promise<LocChange> {
+    const formattedContent = await this.formatContent(input.content, input.file_path)
+    const linesAdded = this.countLines(formattedContent)
     
     return {
       linesAdded,
@@ -75,7 +92,7 @@ export class LocCounter {
   /**
    * Calculate LOC change for any operation type
    */
-  calculateChange(toolName: string, input: EditInput | MultiEditInput | WriteInput): LocChange {
+  async calculateChange(toolName: string, input: EditInput | MultiEditInput | WriteInput): Promise<LocChange> {
     switch (toolName) {
       case 'Edit':
         return this.calculateEditChange(input as EditInput)

@@ -1,0 +1,13 @@
+{
+  "enforcement": {
+    "mode": "session-wide",
+    "ignoreEmptyLines": true
+  },
+  "formatter": {
+    "enabled": true,
+    "commands": {
+      ".js": { "command": "prettier --stdin-filepath {filepath}" },
+      ".ts": { "command": "prettier --stdin-filepath {filepath}" }
+    }
+  }
+}

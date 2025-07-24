@@ -1,8 +1,9 @@
-import { Context, ValidationResult, LocChange, SessionStats } from '../contracts'
+import { Context, ValidationResult, LocChange, SessionStats, ToolOperation } from '../contracts'
 import { LocCounter } from './locCounter'
 import { GuardManager } from '../ccguard/GuardManager'
 import { Storage } from '../storage/Storage'
 import { ConfigLoader } from '../config/ConfigLoader'
+import { FormatterFactory } from '../formatting'
 
 export class Validator {
   private locCounter: LocCounter
@@ -12,7 +13,14 @@ export class Validator {
   constructor(storage: Storage, configLoader?: ConfigLoader) {
     this.configLoader = configLoader ?? new ConfigLoader()
     const config = this.configLoader.getConfig()
-    this.locCounter = new LocCounter({ ignoreEmptyLines: config.enforcement.ignoreEmptyLines })
+    
+    // Create formatter if configured
+    const formatter = FormatterFactory.createFormatter(config.formatter)
+    
+    this.locCounter = new LocCounter(
+      { ignoreEmptyLines: config.enforcement.ignoreEmptyLines },
+      formatter || undefined
+    )
     this.guardManager = new GuardManager(storage, this.configLoader)
   }
 
@@ -35,7 +43,7 @@ export class Validator {
     }
 
     // Calculate LOC change for this operation
-    const change = this.locCounter.calculateChange(
+    const change = await this.locCounter.calculateChange(
       context.operation.tool_name,
       context.operation.tool_input
     )
@@ -46,25 +54,18 @@ export class Validator {
     if (config.enforcement.mode === 'per-operation') {
       const threshold = config.thresholds?.allowedPositiveLines ?? 0
       if (change.netChange > threshold) {
-        return this.createBlockResponse(change, null, true)
+        return this.createResponse('block', change, null, true)
       }
-      return this.createApproveResponse(change, null, true)
+      return this.createResponse('approve', change, null, true)
     }
 
     // Session-wide mode: calculate what stats would be
     const currentStats = await this.guardManager.getSessionStats()
-    const projectedStats: SessionStats = {
-      totalLinesAdded: (currentStats?.totalLinesAdded ?? 0) + change.linesAdded,
-      totalLinesRemoved: (currentStats?.totalLinesRemoved ?? 0) + change.linesRemoved,
-      netChange: 0,
-      operationCount: (currentStats?.operationCount ?? 0) + 1,
-      lastUpdated: new Date().toISOString(),
-    }
-    projectedStats.netChange = projectedStats.totalLinesAdded - projectedStats.totalLinesRemoved
+    const projectedStats = this.projectStats(currentStats, change)
 
     const threshold = config.thresholds?.allowedPositiveLines ?? 0
     if (projectedStats.netChange > threshold) {
-      return this.createBlockResponse(change, projectedStats)
+      return this.createResponse('block', change, projectedStats)
     }
 
     // Only update stats if approved
@@ -73,58 +74,61 @@ export class Validator {
       change.linesRemoved
     )
 
-    return this.createApproveResponse(change, updatedStats)
+    return this.createResponse('approve', change, updatedStats)
   }
 
-  private getFilePath(operation: any): string | null {
+  private getFilePath(operation: ToolOperation): string | null {
     const input = operation.tool_input
     return input?.file_path ?? null
   }
 
-  private createBlockResponse(
-    change: LocChange,
-    stats: SessionStats | null,
-    perOperation: boolean = false
-  ): ValidationResult {
-    const changeStr = change.netChange > 0 ? `+${change.netChange}` : `${change.netChange}`
-    const totalStr = stats ? (stats.netChange > 0 ? `+${stats.netChange}` : `${stats.netChange}`) : 'N/A'
-    
-    let reason = `Operation blocked: Net positive LOC change detected!\n\n`
-    reason += `This operation would:\n`
-    reason += `  • Add ${change.linesAdded} lines\n`
-    reason += `  • Remove ${change.linesRemoved} lines\n`
-    reason += `  • Net change: ${changeStr} lines\n\n`
-    reason += perOperation ? `` : `Session total would become: ${totalStr} lines\n\n`
-    reason += `Suggestions:\n`
-    reason += `  • Use MultiEdit to batch this change with code removal in other files\n`
-    reason += `    (e.g., add feature in one file while removing old code in another)\n`
-    reason += `  • Refactor existing code to be more concise before adding new code\n`
-    reason += `  • Extract common patterns to reduce duplication\n`
-    reason += `  • Remove unnecessary code, comments, or deprecated features\n`
-    reason += `  • Consider if this feature is truly needed`
+  private formatChange(n: number): string {
+    return n > 0 ? `+${n}` : `${n}`
+  }
 
+  private projectStats(current: SessionStats | null, change: LocChange): SessionStats {
     return {
-      decision: 'block',
-      reason,
+      totalLinesAdded: (current?.totalLinesAdded ?? 0) + change.linesAdded,
+      totalLinesRemoved: (current?.totalLinesRemoved ?? 0) + change.linesRemoved,
+      netChange: (current?.netChange ?? 0) + change.netChange,
+      operationCount: (current?.operationCount ?? 0) + 1,
+      lastUpdated: new Date().toISOString(),
     }
   }
 
-  private createApproveResponse(
+  private createResponse(
+    decision: 'block' | 'approve',
     change: LocChange,
-    stats: SessionStats | null,
-    perOperation: boolean = false
+    stats: SessionStats | null = null,
+    perOp = false
   ): ValidationResult {
-    const changeStr = change.netChange > 0 ? `+${change.netChange}` : `${change.netChange}`
-    const totalStr = stats ? (stats.netChange > 0 ? `+${stats.netChange}` : `${stats.netChange}`) : 'N/A'
+    const c = this.formatChange(change.netChange)
+    const t = stats ? this.formatChange(stats.netChange) : 'N/A'
     
-    let reason = `Operation approved\n\n`
-    reason += perOperation 
-      ? `LOC change: ${changeStr}` 
-      : `LOC change: ${changeStr} (Session total: ${totalStr})`
-
+    if (decision === 'block') {
+      return {
+        decision,
+        reason: [
+          `Operation blocked: Net positive LOC change detected!\n`,
+          `This operation would:`,
+          `  • Add ${change.linesAdded} lines`,
+          `  • Remove ${change.linesRemoved} lines`,
+          `  • Net change: ${c} lines\n`,
+          !perOp && `Session total would become: ${t} lines\n`,
+          `Suggestions:`,
+          `  • Use MultiEdit to batch this change with code removal in other files`,
+          `    (e.g., add feature in one file while removing old code in another)`,
+          `  • Refactor existing code to be more concise before adding new code`,
+          `  • Extract common patterns to reduce duplication`,
+          `  • Remove unnecessary code, comments, or deprecated features`,
+          `  • Consider if this feature is truly needed`
+        ].filter(Boolean).join('\n')
+      }
+    }
+    
     return {
-      decision: 'approve',
-      reason,
+      decision,
+      reason: `Operation approved\n\nLOC change: ${c}${!perOp ? ` (Session total: ${t})` : ''}`
     }
   }
 }
