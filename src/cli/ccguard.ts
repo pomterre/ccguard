@@ -1,12 +1,19 @@
 #!/usr/bin/env node
 
 import { processHookData } from '../hooks/processHookData'
+import { FileStorage } from '../storage/FileStorage'
+import { createValidator } from '../validation/validator'
+import { ValidationResult } from '../contracts'
+import { ConfigLoader } from '../config/ConfigLoader'
 import { appendFileSync, mkdirSync } from 'fs'
 import { join } from 'path'
 import { homedir } from 'os'
 
-// Debug logging
+// Debug logging - only enabled when CCGUARD_DEBUG environment variable is set
+const DEBUG = process.env.CCGUARD_DEBUG === 'true'
 const debugLog = (message: any) => {
+  if (!DEBUG) return
+  
   const ccguardDir = join(homedir(), '.ccguard')
   const logPath = join(ccguardDir, 'debug.log')
   
@@ -15,10 +22,6 @@ const debugLog = (message: any) => {
   
   appendFileSync(logPath, `${new Date().toISOString()} - ${JSON.stringify(message)}\n`)
 }
-import { FileStorage } from '../storage/FileStorage'
-import { createValidator } from '../validation/validator'
-import { ValidationResult } from '../contracts'
-import { ConfigLoader } from '../config/ConfigLoader'
 
 export async function run(
   input: string,
