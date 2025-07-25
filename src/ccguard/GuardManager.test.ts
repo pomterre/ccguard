@@ -12,9 +12,9 @@ describe('GuardManager', () => {
   })
 
   describe('isEnabled', () => {
-    it('should default to enabled', async () => {
+    it('should default to disabled', async () => {
       const enabled = await guardManager.isEnabled()
-      expect(enabled).toBe(true)
+      expect(enabled).toBe(false)
     })
 
     it('should return stored state', async () => {

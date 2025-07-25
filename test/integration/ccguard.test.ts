@@ -4,6 +4,7 @@ import { processHookData } from '../../src/hooks/processHookData'
 import { createValidator } from '../../src/validation/validator'
 import { ConfigLoader } from '../../src/config/ConfigLoader'
 import { GuardConfig } from '../../src/contracts'
+import { GuardManager } from '../../src/ccguard/GuardManager'
 
 // Mock ConfigLoader for tests with zero threshold
 class TestConfigLoader extends ConfigLoader {
@@ -30,13 +31,17 @@ class TestConfigLoader extends ConfigLoader {
 
 describe('ccguard integration', () => {
   let storage: MemoryStorage
+  let guardManager: GuardManager
 
   beforeEach(() => {
     storage = new MemoryStorage()
+    guardManager = new GuardManager(storage)
   })
 
   describe('Edit operations', () => {
     it('should block net positive changes', async () => {
+      // Enable ccguard for this test
+      await guardManager.enable()
       const hookData = {
         session_id: 'test-session',
         transcript_path: '/tmp/test',
@@ -66,6 +71,8 @@ const a = 4`
     })
 
     it('should approve net negative changes', async () => {
+      // Enable ccguard for this test
+      await guardManager.enable()
       const hookData = {
         session_id: 'test-session',
         transcript_path: '/tmp/test',
@@ -133,6 +140,8 @@ const b = 2`,
 
   describe('Write operations', () => {
     it('should block new file creation', async () => {
+      // Enable ccguard for this test
+      await guardManager.enable()
       const hookData = {
         session_id: 'test-session',
         transcript_path: '/tmp/test',
@@ -195,7 +204,7 @@ const b = 2`,
       })
 
       expect(result.decision).toBe('block')
-      expect(result.reason).toContain('ENABLED')
+      expect(result.reason).toContain('DISABLED')
     })
 
     it('should show version', async () => {
@@ -238,6 +247,8 @@ const b = 2`,
 
   describe('Session tracking', () => {
     it('should track cumulative changes across operations', async () => {
+      // Enable ccguard for session tracking
+      await guardManager.enable()
       const configLoader = new TestConfigLoader()
       const validator = await createValidator(storage, configLoader)
       
@@ -275,6 +286,8 @@ y`
     })
 
     it('should block when cumulative goes positive', async () => {
+      // Enable ccguard for this test
+      await guardManager.enable()
       const configLoader = new TestConfigLoader()
       const validator = await createValidator(storage, configLoader)
       

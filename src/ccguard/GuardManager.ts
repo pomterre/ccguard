@@ -10,7 +10,7 @@ export class GuardManager {
 
   async isEnabled(): Promise<boolean> {
     const state = await this.storage.getGuardState()
-    return state?.enabled ?? true // Default to enabled
+    return state?.enabled ?? false // Default to disabled
   }
 
   async enable(): Promise<void> {
