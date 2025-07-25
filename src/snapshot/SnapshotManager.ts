@@ -36,8 +36,8 @@ export class SnapshotManager {
     this.baselineSnapshot = snapshot
     this.lastValidSnapshot = snapshot
     
-    // Store baseline in storage
-    await this.storage.set(`snapshot:baseline:${sessionId}`, snapshot)
+    // Store baseline in storage (convert Map to serializable format)
+    await this.storage.set(`snapshot:baseline:${sessionId}`, this.toSerializable(snapshot))
     
     return snapshot
   }
@@ -53,9 +53,8 @@ export class SnapshotManager {
     // Try to load from storage
     const stored = await this.storage.get(`snapshot:baseline:${sessionId}`)
     if (stored) {
-      this.baselineSnapshot = stored as ProjectSnapshot
-      // Reconstruct Map from stored object
-      this.baselineSnapshot.files = new Map(Object.entries(this.baselineSnapshot.files as any))
+      // Convert from serialized format back to ProjectSnapshot
+      this.baselineSnapshot = this.fromSerializable(stored)
       return this.baselineSnapshot
     }
 
@@ -221,6 +220,26 @@ export class SnapshotManager {
    */
   getLastValidSnapshot(): ProjectSnapshot | null {
     return this.lastValidSnapshot
+  }
+
+  /**
+   * Convert a ProjectSnapshot to a JSON-serializable format
+   */
+  private toSerializable(snapshot: ProjectSnapshot): any {
+    return {
+      ...snapshot,
+      files: Object.fromEntries(snapshot.files),
+    }
+  }
+
+  /**
+   * Convert a serialized snapshot back to ProjectSnapshot format
+   */
+  private fromSerializable(data: any): ProjectSnapshot {
+    return {
+      ...data,
+      files: new Map(Object.entries(data.files)),
+    }
   }
 
   /**
