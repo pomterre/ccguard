@@ -1,6 +1,7 @@
 {
   "enforcement": {
     "mode": "session-wide",
+    "strategy": "snapshot",
     "ignoreEmptyLines": true
   },
   "whitelist": {
