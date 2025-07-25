@@ -84,9 +84,11 @@ export const GuardStateSchema = z.object({
 export const GuardConfigSchema = z.object({
   enforcement: z.object({
     mode: z.enum(['session-wide', 'per-operation']).default('session-wide'),
+    strategy: z.enum(['cumulative', 'snapshot']).default('cumulative'),
     ignoreEmptyLines: z.boolean().default(true),
   }).default({
     mode: 'session-wide',
+    strategy: 'cumulative',
     ignoreEmptyLines: true,
   }),
   whitelist: z.object({

@@ -5,6 +5,8 @@
 
 **Automated enforcement of net-negative LOC, complexity constraints, and quality standards for Claude code**
 
+> 📌 **New in v0.1.4**: The [Snapshot Strategy](#snapshot-strategy-recommended-as-of-v014) is now the recommended approach for more robust session-wide LOC tracking.
+
 ---
 
 ## 🎯 Overview
@@ -76,6 +78,18 @@ CCGuard requires two hooks to be configured in Claude Code:
 4. Enter command: `ccguard`
 5. Save settings (Project settings recommended)
 
+#### C. PostToolUse Hook (required for snapshot feature only)
+
+> **Note**: This hook is ONLY required if you plan to use the snapshot strategy. The default cumulative strategy does NOT need this hook.
+
+1. Type `/hooks`
+2. Select `PostToolUse - After tool execution`
+3. Click `+ Add new matcher...`
+4. Enter: `Write|Edit|MultiEdit`
+5. Click `+ Add new hook...`
+6. Enter command: `ccguard`
+7. Save settings (Project settings recommended)
+
 #### Configuration Reference
 
 ```json
@@ -85,12 +99,18 @@ CCGuard requires two hooks to be configured in Claude Code:
       "matcher": "Write|Edit|MultiEdit",
       "hooks": [{"type": "command", "command": "ccguard"}]
     }],
+    "PostToolUse": [{
+      "matcher": "Write|Edit|MultiEdit",  // Only needed for snapshot strategy
+      "hooks": [{"type": "command", "command": "ccguard"}]
+    }],
     "UserPromptSubmit": [{
       "hooks": [{"type": "command", "command": "ccguard"}]
     }]
   }
 }
 ```
+
+> **Note**: The PostToolUse hook is only required if using the `snapshot` strategy. The default `cumulative` strategy only needs PreToolUse.
 
 ### 2️⃣ Usage
 
@@ -114,10 +134,21 @@ CCGuard tracks three operations in Claude Code:
 * **MultiEdit**: Cumulative tracking across edits
 * **Write**: Counts lines in new files as additions
 
-CCGuard blocks operations that result in net-positive LOC:
+CCGuard has two enforcement strategies:
 
-* Calculates additions vs removals
-* Updates totals and provides clear feedback
+### Cumulative Strategy (Default)
+* **PreToolUse Only**: Validates changes before they're applied
+* **Cumulative Tracking**: Tracks additions/removals per operation
+* **Prevention**: Blocks operations that would exceed threshold
+
+### Snapshot Strategy (Recommended as of v0.1.4)
+* **Project-Wide Tracking**: Takes baseline snapshot of entire project
+* **PostToolUse Validation**: Validates after changes are applied
+* **Automatic Reversion**: Reverts changes if threshold is exceeded
+* **Git Integration**: Uses git to revert files safely
+* **.gitignore Aware**: Respects project's ignore patterns
+
+> **Why Snapshot is Recommended**: The snapshot strategy provides more robust session-wide tracking by monitoring the actual state of your entire codebase. Unlike the cumulative strategy which only tracks Edit/MultiEdit/Write operations, snapshot captures ALL changes including file deletions via bash commands, making it more accurate for enforcing net-negative LOC constraints.
 
 ### 📝 Examples
 
@@ -149,6 +180,7 @@ Customize CCGuard with `.ccguard.config.json` in your project root:
 {
   "enforcement": {
     "mode": "session-wide",        // or "per-operation"
+    "strategy": "cumulative",      // or "snapshot"
     "ignoreEmptyLines": true
   },
   "whitelist": {
@@ -174,6 +206,10 @@ Customize CCGuard with `.ccguard.config.json` in your project root:
 * **Mode**:
   * `session-wide`: Track cumulative LOC (default)
   * `per-operation`: Check each operation individually
+
+* **Strategy** (for session-wide mode):
+  * `cumulative`: Traditional counting of changes (default)
+  * `snapshot`: Project-wide snapshot tracking with automatic reversion
 
 * **Thresholds**:
   * `allowedPositiveLines`: Buffer for positive changes (default: 0)

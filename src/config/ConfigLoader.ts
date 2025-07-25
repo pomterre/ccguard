@@ -8,6 +8,7 @@ export class ConfigLoader {
   private static DEFAULT_CONFIG: GuardConfig = {
     enforcement: {
       mode: 'session-wide',
+      strategy: 'cumulative',
       ignoreEmptyLines: true,
     },
     whitelist: {

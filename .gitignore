@@ -27,3 +27,5 @@ Thumbs.db
 
 # Session data
 .guard/
+.claude/agents
+.claude/agents

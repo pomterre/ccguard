@@ -4,6 +4,7 @@ import { SessionStats, GuardState } from '../contracts'
 export class MemoryStorage implements Storage {
   private sessionStats: SessionStats | null = null
   private guardState: GuardState | null = null
+  private data: Map<string, any> = new Map()
 
   async getSessionStats(): Promise<SessionStats | null> {
     return this.sessionStats
@@ -21,8 +22,21 @@ export class MemoryStorage implements Storage {
     this.guardState = state
   }
 
+  async setGuardState(state: GuardState): Promise<void> {
+    this.guardState = state
+  }
+
   async clearAll(): Promise<void> {
     this.sessionStats = null
     this.guardState = null
+    this.data.clear()
+  }
+
+  async get(key: string): Promise<any> {
+    return this.data.get(key) || null
+  }
+
+  async set(key: string, value: any): Promise<void> {
+    this.data.set(key, value)
   }
 }

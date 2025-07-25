@@ -75,6 +75,7 @@ export interface GuardState {
 export interface GuardConfig {
   enforcement: {
     mode: 'session-wide' | 'per-operation'
+    strategy: 'cumulative' | 'snapshot'
     ignoreEmptyLines: boolean
   }
   whitelist: {

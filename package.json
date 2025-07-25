@@ -11,7 +11,7 @@
     "dev": "tsx watch src/cli/ccguard.ts",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:unit": "vitest run --testPathPattern='^((?!integration).)*\\.test\\.ts$'",
+    "test:unit": "vitest run --run",
     "test:integration": "vitest run --testPathPattern=integration",
     "lint": "eslint src test",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
@@ -38,6 +38,7 @@
   "devDependencies": {
     "@eslint/js": "^9.0.0",
     "@types/node": "^20.11.0",
+    "@types/uuid": "^9.0.7",
     "@yao-pkg/pkg": "^6.6.0",
     "eslint": "^9.0.0",
     "prettier": "^3.2.4",
@@ -47,6 +48,7 @@
     "vitest": "^1.2.1"
   },
   "dependencies": {
+    "uuid": "^9.0.1",
     "zod": "^3.22.4"
   },
   "engines": {

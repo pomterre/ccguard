@@ -67,4 +67,26 @@ export class FileStorage implements Storage {
       // Ignore errors
     }
   }
+
+  async get(key: string): Promise<any> {
+    try {
+      const fileName = `${key.replace(/[^a-zA-Z0-9-_:]/g, '_')}.json`
+      const filePath = path.join(this.dataDir, fileName)
+      const data = await fs.readFile(filePath, 'utf8')
+      return JSON.parse(data)
+    } catch {
+      return null
+    }
+  }
+
+  async set(key: string, value: any): Promise<void> {
+    await this.ensureDir()
+    const fileName = `${key.replace(/[^a-zA-Z0-9-_:]/g, '_')}.json`
+    const filePath = path.join(this.dataDir, fileName)
+    await fs.writeFile(
+      filePath,
+      JSON.stringify(value, null, 2),
+      'utf8'
+    )
+  }
 }

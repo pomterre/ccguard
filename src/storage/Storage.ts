@@ -9,6 +9,10 @@ export interface Storage {
   getGuardState(): Promise<GuardState | null>
   saveGuardState(state: GuardState): Promise<void>
   
+  // Generic storage
+  get(key: string): Promise<any>
+  set(key: string, value: any): Promise<void>
+  
   // Cleanup
   clearAll(): Promise<void>
 }

@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import { processHookData } from '../hooks/processHookData'
+import { SnapshotHookProcessor } from '../hooks/snapshotHookProcessor'
 import { FileStorage } from '../storage/FileStorage'
 import { createValidator } from '../validation/validator'
 import { ValidationResult } from '../contracts'
@@ -29,8 +30,19 @@ export async function run(
 ): Promise<ValidationResult> {
   const storage = new FileStorage(sessionId)
   const configLoader = new ConfigLoader()
-  const validator = await createValidator(storage, configLoader)
+  const config = configLoader.getConfig()
   
+  // Use snapshot processor if strategy is 'snapshot'
+  if (config.enforcement.strategy === 'snapshot') {
+    const processor = new SnapshotHookProcessor({
+      storage,
+      configLoader,
+    })
+    return processor.processHookData(input)
+  }
+  
+  // Otherwise use the cumulative processor
+  const validator = await createValidator(storage, configLoader)
   return processHookData(input, {
     storage,
     validator,

@@ -61,7 +61,7 @@ export class UserPromptHandler {
     if (!isEnabled) {
       return {
         decision: 'approve',
-        reason: '',
+        reason: 'CCGuard is disabled',
       }
     }
     
