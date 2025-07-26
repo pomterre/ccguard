@@ -11,11 +11,11 @@ export class RevertManager {
   }
 
   /**
-   * Revert files to their state in the last valid snapshot
+   * Revert files to their state in the given snapshot
    */
   async revertToSnapshot(
     affectedFiles: string[],
-    lastValidSnapshot: ProjectSnapshot
+    snapshot: ProjectSnapshot
   ): Promise<{ success: boolean; error?: string }> {
     try {
       // Create a backup of current changes in case revert fails
@@ -27,16 +27,17 @@ export class RevertManager {
             ? filePath 
             : path.join(this.rootDir, filePath)
           
-          const snapshotFile = lastValidSnapshot.files.get(absolutePath)
+          const snapshotFile = snapshot.files.get(absolutePath)
           
           if (!snapshotFile) {
-            // File didn't exist in last valid snapshot, so remove it
+            // File didn't exist in snapshot, so remove it
             if (fs.existsSync(absolutePath)) {
               fs.unlinkSync(absolutePath)
             }
           } else {
-            // File existed, revert using git
-            this.revertFile(absolutePath)
+            // Restore file content from snapshot
+            fs.mkdirSync(path.dirname(absolutePath), { recursive: true })
+            fs.writeFileSync(absolutePath, snapshotFile.content)
           }
         }
 
@@ -72,30 +73,6 @@ export class RevertManager {
     }
   }
 
-  /**
-   * Revert a single file using git
-   */
-  private revertFile(filePath: string): void {
-    try {
-      // First, check if file is tracked by git
-      const isTracked = this.isFileTracked(filePath)
-      
-      if (isTracked) {
-        // For tracked files, use git checkout to revert
-        execSync(`git checkout HEAD -- "${filePath}"`, {
-          cwd: this.rootDir,
-          stdio: 'pipe',
-        })
-      } else {
-        // For untracked files, we need to remove them
-        if (fs.existsSync(filePath)) {
-          fs.unlinkSync(filePath)
-        }
-      }
-    } catch (error) {
-      throw new Error(`Failed to revert ${filePath}: ${error}`)
-    }
-  }
 
   /**
    * Check if a file is tracked by git

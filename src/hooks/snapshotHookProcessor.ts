@@ -40,7 +40,7 @@ export class SnapshotHookProcessor {
     )
     this.revertManager = new RevertManager(this.rootDir)
     this.fileScanner = new FileScanner(this.rootDir, config.enforcement.ignoreEmptyLines)
-    this.guardManager = new GuardManager(this.storage, this.configLoader)
+    this.guardManager = new GuardManager(this.storage, this.configLoader, this.rootDir)
     this.userPromptHandler = new UserPromptHandler(this.guardManager)
   }
 
@@ -70,6 +70,16 @@ export class SnapshotHookProcessor {
       }
 
       const hookData = hookResult.data
+
+      // Handle UserPromptSubmit to ensure baseline is initialized early
+      if (hookData.hook_event_name === 'UserPromptSubmit' && hookData.session_id) {
+        // Initialize baseline for new sessions
+        await this.snapshotManager.getBaseline(hookData.session_id)
+        return {
+          decision: 'approve',
+          reason: 'Session initialized',
+        }
+      }
 
       // Only process file modification operations
       if (!this.shouldValidateOperation(hookData)) {
@@ -101,23 +111,31 @@ export class SnapshotHookProcessor {
 
   private async handlePreToolUse(hookData: HookData): Promise<ValidationResult> {
     try {
-      // Initialize baseline if needed
-      await this.snapshotManager.getBaseline(hookData.session_id)
-      
-      // Get affected files
+      // Get affected files  
       const affectedFiles = this.fileScanner.getAffectedFiles(hookData)
       
-      // Take a lightweight snapshot of affected files
+      // For operations that will create new files, we need to ensure baseline exists
+      // but we must initialize it BEFORE any files are created
+      const baseline = await this.snapshotManager.getBaseline(hookData.session_id)
+      
+      // Take a snapshot of current state (before operation)
+      // For new file operations, this won't include the new file yet
       const snapshot = await this.snapshotManager.takeOperationSnapshot(
         hookData.session_id,
         affectedFiles
       )
       
+      // Convert Map to serializable format before storing
+      const serializableSnapshot = {
+        ...snapshot,
+        files: Array.from(snapshot.files.entries())
+      }
+      
       // Store snapshot reference for PostToolUse
       await this.storage.set(
         `snapshot:pre:${hookData.session_id}:latest`,
         {
-          snapshot,
+          snapshot: serializableSnapshot,
           affectedFiles,
           operation: hookData,
         }
@@ -160,28 +178,68 @@ export class SnapshotHookProcessor {
         affectedFiles
       )
       
-      // Check threshold
-      const config = this.configLoader.getConfig()
-      const threshold = config.thresholds?.allowedPositiveLines ?? 0
-      const thresholdCheck = await this.snapshotManager.checkThreshold(
-        hookData.session_id,
-        postSnapshot,
-        threshold
+      // Reconstruct the pre-operation snapshot with proper Map structure
+      const preSnapshot = {
+        ...preData.snapshot,
+        files: new Map(preData.snapshot.files)
+      }
+      
+      // Compare pre and post operation snapshots to get actual changes
+      const operationDiff = this.snapshotManager.compareSnapshots(
+        preSnapshot,
+        postSnapshot
       )
       
-      if (thresholdCheck.exceeded) {
-        // Threshold exceeded - revert changes
+      // Calculate lines added/removed from operation diff details
+      let linesAdded = 0
+      let linesRemoved = 0
+      
+      for (const [_, fileDiff] of operationDiff.details) {
+        if (fileDiff.delta > 0) {
+          linesAdded += fileDiff.delta
+        } else if (fileDiff.delta < 0) {
+          linesRemoved += Math.abs(fileDiff.delta)
+        }
+      }
+      
+      // Get current session stats
+      const sessionStats = await this.guardManager.getSessionStats() || {
+        totalLinesAdded: 0,
+        totalLinesRemoved: 0,
+        netChange: 0,
+        operationCount: 0,
+        lastUpdated: new Date().toISOString()
+      }
+      
+      // Calculate what the session totals would be after this operation
+      const projectedLinesAdded = sessionStats.totalLinesAdded + linesAdded
+      const projectedLinesRemoved = sessionStats.totalLinesRemoved + linesRemoved
+      const projectedNetChange = projectedLinesAdded - projectedLinesRemoved
+      
+      // Check threshold based on session stats
+      const config = this.configLoader.getConfig()
+      const threshold = config.thresholds?.allowedPositiveLines ?? 0
+      
+      if (projectedNetChange > threshold) {
+        // Threshold would be exceeded - revert to pre-operation state
         const revertResult = await this.revertManager.revertToSnapshot(
           affectedFiles,
-          this.snapshotManager.getLastValidSnapshot() || await this.snapshotManager.getBaseline(hookData.session_id)
+          preSnapshot
         )
         
         if (!revertResult.success) {
           return {
             decision: 'block',
-            reason: `LOC threshold exceeded (current: +${thresholdCheck.delta} lines, allowed: +${threshold} lines).\n\nFailed to revert: ${revertResult.error}\n\nPlease manually revert the changes.`,
+            reason: `LOC threshold exceeded (session would have: +${projectedNetChange} lines, allowed: +${threshold} lines).\n\nFailed to revert: ${revertResult.error}\n\nPlease manually revert the changes.`,
           }
         }
+        
+        // Use baseline comparison for the error message (for display purposes)
+        const thresholdCheck = await this.snapshotManager.checkThreshold(
+          hookData.session_id,
+          postSnapshot,
+          threshold
+        )
         
         return {
           decision: 'block',
@@ -192,18 +250,15 @@ export class SnapshotHookProcessor {
       // Update last valid snapshot
       this.snapshotManager.updateLastValidSnapshot(postSnapshot)
       
-      // Update session stats for backward compatibility
-      const baseline = await this.snapshotManager.getBaseline(hookData.session_id)
-      const diff = this.snapshotManager.compareSnapshots(baseline, postSnapshot)
+      // Update session stats with the operation changes
+      await this.guardManager.updateSessionStats(linesAdded, linesRemoved)
       
-      await this.guardManager.updateSessionStats(
-        postSnapshot.totalLoc - baseline.totalLoc + Math.abs(diff.locDelta),
-        baseline.totalLoc - postSnapshot.totalLoc + Math.abs(diff.locDelta)
-      )
+      // Get updated session stats
+      const updatedStats = await this.guardManager.getSessionStats()
       
       return {
         decision: 'approve',
-        reason: `Operation completed successfully.\n\nLOC change: ${diff.locDelta >= 0 ? '+' : ''}${diff.locDelta} lines\nSession total: ${thresholdCheck.delta >= 0 ? '+' : ''}${thresholdCheck.delta} lines from baseline`,
+        reason: `Operation completed successfully.\n\nLOC change: ${operationDiff.locDelta >= 0 ? '+' : ''}${operationDiff.locDelta} lines\nSession total: ${(updatedStats?.netChange ?? 0) >= 0 ? '+' : ''}${updatedStats?.netChange ?? 0} lines`,
       }
     } catch (error) {
       console.error('Error in PostToolUse:', error)
@@ -215,8 +270,8 @@ export class SnapshotHookProcessor {
   }
 
   private shouldValidateOperation(hookData: HookData): boolean {
-    const validTools = ['Edit', 'MultiEdit', 'Write']
-    return validTools.includes(hookData.tool_name)
+    // Validate all tools to track any file system changes
+    return true
   }
 
   private createThresholdExceededMessage(

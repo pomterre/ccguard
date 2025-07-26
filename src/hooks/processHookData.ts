@@ -15,6 +15,7 @@ export interface ProcessHookDataDeps {
   validator?: (context: Context) => Promise<ValidationResult>
   userPromptHandler?: UserPromptHandler
   configLoader?: ConfigLoader
+  rootDir?: string
 }
 
 const defaultResult: ValidationResult = {
@@ -31,7 +32,7 @@ export async function processHookData(
     
     // Initialize dependencies
     const configLoader = deps.configLoader ?? new ConfigLoader()
-    const guardManager = new GuardManager(deps.storage, configLoader)
+    const guardManager = new GuardManager(deps.storage, configLoader, deps.rootDir)
     const userPromptHandler = deps.userPromptHandler ?? new UserPromptHandler(guardManager)
     
     // Process user commands (on/off/status)

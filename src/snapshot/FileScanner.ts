@@ -94,6 +94,7 @@ export class FileScanner {
         locCount,
         hash,
         lastModified: stats.mtimeMs,
+        content,
       }
     } catch {
       // Handle files that can't be read (permissions, etc.)
@@ -176,23 +177,24 @@ export class FileScanner {
    * Get files that would be affected by an operation
    */
   getAffectedFiles(operation: any): string[] {
-    const files: string[] = []
-    
+    // For known file operations, return specific files for efficiency
     switch (operation.tool_name) {
       case 'Edit':
       case 'Write':
         if (operation.tool_input?.file_path) {
-          files.push(operation.tool_input.file_path)
+          return [operation.tool_input.file_path]
         }
         break
         
       case 'MultiEdit':
         if (operation.tool_input?.file_path) {
-          files.push(operation.tool_input.file_path)
+          return [operation.tool_input.file_path]
         }
         break
     }
     
-    return files
+    // For all other tools (including Bash), return empty array
+    // This will trigger a full project scan in the snapshot manager
+    return []
   }
 }

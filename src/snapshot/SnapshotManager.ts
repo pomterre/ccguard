@@ -69,6 +69,20 @@ export class SnapshotManager {
     sessionId: string,
     affectedFiles: string[]
   ): Promise<ProjectSnapshot> {
+    // If no specific files provided, scan the entire project
+    if (affectedFiles.length === 0) {
+      const files = await this.fileScanner.scanProject()
+      const snapshot: ProjectSnapshot = {
+        id: uuidv4(),
+        sessionId,
+        timestamp: new Date().toISOString(),
+        files,
+        totalLoc: this.calculateTotalLoc(files),
+        isBaseline: false,
+      }
+      return snapshot
+    }
+
     // Start with the last valid snapshot as base
     const base = this.lastValidSnapshot || await this.getBaseline(sessionId)
     
@@ -100,6 +114,20 @@ export class SnapshotManager {
     sessionId: string,
     affectedFiles: string[]
   ): Promise<ProjectSnapshot> {
+    // If no specific files provided, scan the entire project
+    if (affectedFiles.length === 0) {
+      const files = await this.fileScanner.scanProject()
+      const snapshot: ProjectSnapshot = {
+        id: uuidv4(),
+        sessionId,
+        timestamp: new Date().toISOString(),
+        files,
+        totalLoc: this.calculateTotalLoc(files),
+        isBaseline: false,
+      }
+      return snapshot
+    }
+
     // Scan affected files plus any new files
     const allFiles = [...new Set([
       ...affectedFiles,

@@ -1,11 +1,15 @@
 import { Storage } from '../storage/Storage'
 import { GuardState, SessionStats } from '../contracts'
 import { ConfigLoader } from '../config/ConfigLoader'
+import { SnapshotManager } from '../snapshot/SnapshotManager'
 
 export class GuardManager {
+  private snapshotManager?: SnapshotManager
+  
   constructor(
     private storage: Storage,
-    private configLoader?: ConfigLoader
+    private configLoader?: ConfigLoader,
+    private rootDir: string = process.cwd()
   ) {}
 
   async isEnabled(): Promise<boolean> {
@@ -62,5 +66,33 @@ export class GuardManager {
       lastUpdated: new Date().toISOString(),
     }
     await this.storage.saveSessionStats(stats)
+  }
+
+  async takeSnapshot(sessionId?: string): Promise<{
+    totalLoc: number
+    fileCount: number
+    timestamp: string
+  }> {
+    // Initialize snapshot manager if not already done
+    if (!this.snapshotManager) {
+      const config = this.configLoader?.getConfig() ?? { enforcement: { ignoreEmptyLines: true } }
+      this.snapshotManager = new SnapshotManager(
+        this.rootDir,
+        this.storage,
+        config.enforcement.ignoreEmptyLines
+      )
+    }
+
+    // Use a default session ID if not provided
+    const effectiveSessionId = sessionId ?? 'default'
+    
+    // Take a new baseline snapshot
+    const snapshot = await this.snapshotManager.initializeBaseline(effectiveSessionId)
+    
+    return {
+      totalLoc: snapshot.totalLoc,
+      fileCount: snapshot.files.size,
+      timestamp: snapshot.timestamp,
+    }
   }
 }

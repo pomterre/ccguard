@@ -3,6 +3,7 @@ export interface FileSnapshot {
   locCount: number
   hash: string
   lastModified: number
+  content: string
 }
 
 export interface ProjectSnapshot {
