@@ -1,6 +1,6 @@
 {
   "name": "ccguard",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "description": "Automated enforcement of net-negative LOC, complexity constraints, and quality standards for Claude code",
   "main": "dist/index.js",
   "bin": {
