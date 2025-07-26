@@ -117,7 +117,7 @@ CCGuard requires two hooks to be configured in Claude Code:
 CCGuard automatically checks file operations. Control using:
 
 ```bash
-ccguard on      # Enable enforcement (default)
+ccguard on      # Enable enforcement
 ccguard off     # Disable enforcement
 ccguard status  # Show status and LOC statistics
 ccguard reset   # Reset session statistics
