@@ -141,7 +141,7 @@ export class GitIgnoreParser {
   }
 
   // Get all files in a directory that are not ignored
-  getTrackedFiles(dir: string = this.rootDir): string[] {
+  getAllFiles(dir: string = this.rootDir): string[] {
     const files: string[] = []
     
     const walkDir = (currentDir: string) => {

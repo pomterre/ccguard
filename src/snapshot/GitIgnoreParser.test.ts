@@ -69,7 +69,7 @@ src/**/temp
     expect(parser.isIgnored(path.join(tempDir, 'src', 'module', 'temp'))).toBe(true)
   })
 
-  it('should get tracked files', () => {
+  it('should get all files', () => {
     // Create some files
     fs.writeFileSync(path.join(tempDir, 'index.ts'), 'console.log("test")')
     fs.mkdirSync(path.join(tempDir, 'src'))
@@ -81,11 +81,11 @@ src/**/temp
     fs.writeFileSync(path.join(tempDir, '.gitignore'), 'node_modules/')
     
     parser = new GitIgnoreParser(tempDir)
-    const trackedFiles = parser.getTrackedFiles()
+    const allFiles = parser.getAllFiles()
     
-    expect(trackedFiles).toContain(path.join(tempDir, 'index.ts'))
-    expect(trackedFiles).toContain(path.join(tempDir, 'src', 'main.ts'))
-    expect(trackedFiles).not.toContain(path.join(tempDir, 'node_modules', 'package.json'))
+    expect(allFiles).toContain(path.join(tempDir, 'index.ts'))
+    expect(allFiles).toContain(path.join(tempDir, 'src', 'main.ts'))
+    expect(allFiles).not.toContain(path.join(tempDir, 'node_modules', 'package.json'))
   })
 
   it('should not include files outside root directory', () => {

@@ -1,28 +1,31 @@
 import fs from 'fs'
 import crypto from 'crypto'
+import { exec } from 'child_process'
+import { promisify } from 'util'
 import { FileSnapshot } from './types'
 import { GitIgnoreParser } from './GitIgnoreParser'
-import { LocCounter } from '../validation/locCounter'
+
+const execAsync = promisify(exec)
 
 export class FileScanner {
   private gitIgnoreParser: GitIgnoreParser
-  private locCounter: LocCounter
   private rootDir: string
+  private ignoreEmptyLines: boolean
 
   constructor(rootDir: string, ignoreEmptyLines: boolean = true) {
     this.rootDir = rootDir
     this.gitIgnoreParser = new GitIgnoreParser(rootDir)
-    this.locCounter = new LocCounter({ ignoreEmptyLines })
+    this.ignoreEmptyLines = ignoreEmptyLines
   }
 
   /**
-   * Scan all tracked files in the project
+   * Scan all files in the project (excluding those in .gitignore)
    */
   async scanProject(): Promise<Map<string, FileSnapshot>> {
     const files = new Map<string, FileSnapshot>()
-    const trackedFiles = this.gitIgnoreParser.getTrackedFiles()
+    const allFiles = this.gitIgnoreParser.getAllFiles()
 
-    for (const filePath of trackedFiles) {
+    for (const filePath of allFiles) {
       try {
         const snapshot = await this.scanFile(filePath)
         if (snapshot) {
@@ -83,7 +86,7 @@ export class FileScanner {
       }
 
       const content = fs.readFileSync(filePath, 'utf-8')
-      const locCount = this.locCounter.countLines(content)
+      const locCount = await this.countLinesWithWc(filePath)
       const hash = this.calculateHash(content)
 
       return {
@@ -92,9 +95,53 @@ export class FileScanner {
         hash,
         lastModified: stats.mtimeMs,
       }
-    } catch (error) {
+    } catch {
       // Handle files that can't be read (permissions, etc.)
       return null
+    }
+  }
+
+  /**
+   * Count lines using wc -l command
+   */
+  private async countLinesWithWc(filePath: string): Promise<number> {
+    try {
+      // Use wc -l to count lines
+      const { stdout } = await execAsync(`wc -l < "${filePath}"`)
+      let totalLines = parseInt(stdout.trim(), 10)
+      
+      // wc -l doesn't count the last line if it doesn't end with newline
+      // Check if file ends with newline
+      const content = fs.readFileSync(filePath, 'utf-8')
+      if (content.length > 0 && !content.endsWith('\n')) {
+        totalLines += 1
+      }
+        
+      // If ignoring empty lines, we need to count non-empty lines
+      if (this.ignoreEmptyLines) {
+        // Use grep to count non-empty lines
+        try {
+          const { stdout: grepOut } = await execAsync(`grep -c -v '^$' "${filePath}"`)
+          return parseInt(grepOut.trim(), 10)
+        } catch (grepError: any) {
+          // grep returns exit code 1 if no lines match (all empty)
+          if (grepError.code === 1) {
+            return 0
+          }
+          // Fall back to total lines if grep fails
+          return totalLines
+        }
+      }
+      
+      return totalLines
+    } catch {
+      // Fallback: count lines manually if command fails
+      const content = fs.readFileSync(filePath, 'utf-8')
+      const lines = content.split('\n')
+      if (this.ignoreEmptyLines) {
+        return lines.filter(line => line.trim().length > 0).length
+      }
+      return lines.length
     }
   }
 
