@@ -192,4 +192,40 @@ describe('SnapshotHookProcessor', () => {
     expect(result.decision).toBe('block')
     expect(result.reason).toContain('CCGuard is')
   })
+
+  it('should revert changes even when affectedFiles is empty (e.g. Bash commands)', async () => {
+    const sessionId = 'test-session-bash'
+    
+    // Simulate PreToolUse for a Bash command that creates files
+    const preHookData = {
+      session_id: sessionId,
+      transcript_path: '/tmp/transcript',
+      hook_event_name: 'PreToolUse',
+      tool_name: 'Bash',
+      tool_input: {
+        command: 'echo "many lines here" > large-file.txt',
+      },
+    }
+    
+    await processor.processHookData(JSON.stringify(preHookData))
+    
+    // Simulate the file creation that would happen from the Bash command
+    const largeContent = Array(10).fill('line content').join('\n')
+    fs.writeFileSync(path.join(tempDir, 'large-file.txt'), largeContent)
+    
+    // PostToolUse - this should detect the new file and revert it
+    const postHookData = {
+      ...preHookData,
+      hook_event_name: 'PostToolUse',
+    }
+    
+    const result = await processor.processHookData(JSON.stringify(postHookData))
+    
+    expect(result.decision).toBe('block')
+    expect(result.reason).toContain('LOC threshold exceeded')
+    expect(result.reason).toContain('reverted')
+    
+    // File should be removed (reverted) even though affectedFiles was empty
+    expect(fs.existsSync(path.join(tempDir, 'large-file.txt'))).toBe(false)
+  })
 })

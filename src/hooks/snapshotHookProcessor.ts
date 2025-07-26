@@ -116,7 +116,7 @@ export class SnapshotHookProcessor {
       
       // For operations that will create new files, we need to ensure baseline exists
       // but we must initialize it BEFORE any files are created
-      const baseline = await this.snapshotManager.getBaseline(hookData.session_id)
+      await this.snapshotManager.getBaseline(hookData.session_id)
       
       // Take a snapshot of current state (before operation)
       // For new file operations, this won't include the new file yet
@@ -194,7 +194,7 @@ export class SnapshotHookProcessor {
       let linesAdded = 0
       let linesRemoved = 0
       
-      for (const [_, fileDiff] of operationDiff.details) {
+      for (const fileDiff of operationDiff.details.values()) {
         if (fileDiff.delta > 0) {
           linesAdded += fileDiff.delta
         } else if (fileDiff.delta < 0) {
@@ -222,8 +222,13 @@ export class SnapshotHookProcessor {
       
       if (projectedNetChange > threshold) {
         // Threshold would be exceeded - revert to pre-operation state
+        // If affectedFiles is empty, use the files that actually changed from operationDiff
+        const filesToRevert = affectedFiles.length > 0 
+          ? affectedFiles 
+          : Array.from(operationDiff.details.keys())
+        
         const revertResult = await this.revertManager.revertToSnapshot(
-          affectedFiles,
+          filesToRevert,
           preSnapshot
         )
         
@@ -269,7 +274,7 @@ export class SnapshotHookProcessor {
     }
   }
 
-  private shouldValidateOperation(hookData: HookData): boolean {
+  private shouldValidateOperation(_hookData: HookData): boolean {
     // Validate all tools to track any file system changes
     return true
   }
