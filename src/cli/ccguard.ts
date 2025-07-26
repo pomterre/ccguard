@@ -11,7 +11,7 @@ import { join } from 'path'
 import { homedir } from 'os'
 
 // Debug logging - only enabled when CCGUARD_DEBUG environment variable is set
-const DEBUG = process.env.CCGUARD_DEBUG === 'true'
+const DEBUG = process.env.CCGUARD_DEBUG === 'true' || process.env.CCGUARD_DEBUG === '1'
 const debugLog = (message: any) => {
   if (!DEBUG) return
   
