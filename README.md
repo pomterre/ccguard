@@ -96,11 +96,11 @@ CCGuard requires two hooks to be configured in Claude Code:
 {
   "hooks": {
     "PreToolUse": [{
-      "matcher": "Write|Edit|MultiEdit",
+      "matcher": "Write|Edit|MultiEdit|Bash",
       "hooks": [{"type": "command", "command": "ccguard"}]
     }],
     "PostToolUse": [{
-      "matcher": "Write|Edit|MultiEdit",  // Only needed for snapshot strategy
+      "matcher": "Write|Edit|MultiEdit|Bash",  // Only needed for snapshot strategy
       "hooks": [{"type": "command", "command": "ccguard"}]
     }],
     "UserPromptSubmit": [{
