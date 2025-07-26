@@ -65,7 +65,7 @@ CCGuard requires two hooks to be configured in Claude Code:
 1. Type `/hooks`
 2. Select `PreToolUse - Before tool execution`
 3. Click `+ Add new matcher...`
-4. Enter: `Write|Edit|MultiEdit`
+4. Enter: `Write|Edit|MultiEdit|Bash`
 5. Click `+ Add new hook...`
 6. Enter command: `ccguard`
 7. Save settings (Project settings recommended)
@@ -85,7 +85,7 @@ CCGuard requires two hooks to be configured in Claude Code:
 1. Type `/hooks`
 2. Select `PostToolUse - After tool execution`
 3. Click `+ Add new matcher...`
-4. Enter: `Write|Edit|MultiEdit`
+4. Enter: `Write|Edit|MultiEdit|Bash`
 5. Click `+ Add new hook...`
 6. Enter command: `ccguard`
 7. Save settings (Project settings recommended)
