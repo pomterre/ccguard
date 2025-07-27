@@ -22,10 +22,6 @@ export class MemoryStorage implements Storage {
     this.guardState = state
   }
 
-  async setGuardState(state: GuardState): Promise<void> {
-    this.guardState = state
-  }
-
   async clearAll(): Promise<void> {
     this.sessionStats = null
     this.guardState = null
@@ -38,5 +34,9 @@ export class MemoryStorage implements Storage {
 
   async set(key: string, value: any): Promise<void> {
     this.data.set(key, value)
+  }
+
+  async delete(key: string): Promise<void> {
+    this.data.delete(key)
   }
 }

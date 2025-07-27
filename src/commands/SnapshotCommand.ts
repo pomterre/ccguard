@@ -11,14 +11,14 @@ export const SnapshotCommand: Command = {
       
       return {
         decision: 'block',
-        reason: `Snapshot taken successfully!
+        reason: `Snapshot baseline updated successfully!
 
-Project baseline updated:
-  • Total lines of code: ${result.totalLoc}
+New LOC threshold set:
+  • Maximum allowed LOC: ${result.totalLoc}
   • Files tracked: ${result.fileCount}
   • Timestamp: ${new Date(result.timestamp).toLocaleString()}
 
-This is now your new baseline for LOC enforcement.`,
+Any changes that would exceed ${result.totalLoc} lines will be rejected.`,
       }
     } catch (error) {
       return {

@@ -11,11 +11,20 @@ export class FileScanner {
   private gitIgnoreParser: GitIgnoreParser
   private rootDir: string
   private ignoreEmptyLines: boolean
+  private maxFileSizeBytes: number
+  
+  // Default max file size: 10MB
+  private static readonly DEFAULT_MAX_FILE_SIZE = 10 * 1024 * 1024
 
-  constructor(rootDir: string, ignoreEmptyLines: boolean = true) {
+  constructor(
+    rootDir: string, 
+    ignoreEmptyLines: boolean = true,
+    maxFileSizeBytes?: number
+  ) {
     this.rootDir = rootDir
     this.gitIgnoreParser = new GitIgnoreParser(rootDir)
     this.ignoreEmptyLines = ignoreEmptyLines
+    this.maxFileSizeBytes = maxFileSizeBytes ?? FileScanner.DEFAULT_MAX_FILE_SIZE
   }
 
   /**
@@ -77,6 +86,12 @@ export class FileScanner {
       
       // Skip if not a regular file
       if (!stats.isFile()) {
+        return null
+      }
+
+      // Skip files that are too large (security and performance)
+      if (stats.size > this.maxFileSizeBytes) {
+        console.debug(`Skipping large file ${filePath}: ${stats.size} bytes (max: ${this.maxFileSizeBytes})`)
         return null
       }
 

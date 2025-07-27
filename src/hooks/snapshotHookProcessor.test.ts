@@ -22,11 +22,11 @@ describe('SnapshotHookProcessor', () => {
     fs.mkdirSync(path.join(tempDir, '.git'))
     fs.writeFileSync(path.join(tempDir, 'existing.ts'), 'const x = 1\nconst y = 2')
     
-    // Create config with snapshot strategy
+    // Create config with cumulative strategy for these tests
     const config = {
       enforcement: {
         mode: 'session-wide' as const,
-        strategy: 'snapshot' as const,
+        strategy: 'cumulative' as const,
         ignoreEmptyLines: true,
       },
       whitelist: {

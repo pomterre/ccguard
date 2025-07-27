@@ -95,4 +95,27 @@ export class GuardManager {
       timestamp: snapshot.timestamp,
     }
   }
+
+  /**
+   * Check if the system is configured for snapshot mode
+   */
+  isSnapshotMode(): boolean {
+    const config = this.configLoader?.getConfig()
+    return config?.enforcement.strategy === 'snapshot'
+  }
+
+  /**
+   * Get the snapshot manager instance
+   */
+  getSnapshotManager(): SnapshotManager | undefined {
+    if (!this.snapshotManager) {
+      const config = this.configLoader?.getConfig() ?? { enforcement: { ignoreEmptyLines: true } }
+      this.snapshotManager = new SnapshotManager(
+        this.rootDir,
+        this.storage,
+        config.enforcement.ignoreEmptyLines
+      )
+    }
+    return this.snapshotManager
+  }
 }

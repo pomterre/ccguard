@@ -111,6 +111,38 @@ export class SnapshotHookProcessor {
 
   private async handlePreToolUse(hookData: HookData): Promise<ValidationResult> {
     try {
+      // In snapshot mode, we don't need full pre-operation snapshots
+      if (this.isSnapshotMode()) {
+        // Ensure baseline exists for the session
+        await this.snapshotManager.getBaseline(hookData.session_id)
+        
+        // Store minimal pre-state for potential revert
+        // We only need to store affected files for revert capability
+        const affectedFiles = this.fileScanner.getAffectedFiles(hookData)
+        const minimalSnapshot = await this.snapshotManager.takeOperationSnapshot(
+          hookData.session_id,
+          affectedFiles
+        )
+        
+        // Store only the minimal snapshot for revert
+        await this.storage.set(
+          `snapshot:pre:${hookData.session_id}:minimal`,
+          {
+            snapshot: {
+              ...minimalSnapshot,
+              files: Array.from(minimalSnapshot.files.entries())
+            },
+            affectedFiles,
+          }
+        )
+        
+        return {
+          decision: 'approve',
+          reason: 'Operation approved - will validate after completion',
+        }
+      }
+
+      // Cumulative mode: continue with existing logic
       // Get affected files  
       const affectedFiles = this.fileScanner.getAffectedFiles(hookData)
       
@@ -157,6 +189,12 @@ export class SnapshotHookProcessor {
 
   private async handlePostToolUse(hookData: HookData): Promise<ValidationResult> {
     try {
+      // Route to mode-specific handler
+      if (this.isSnapshotMode()) {
+        return await this.handleSnapshotModePostToolUse(hookData)
+      }
+
+      // Cumulative mode: continue with existing logic
       // Get the pre-operation snapshot
       const preData = await this.storage.get(
         `snapshot:pre:${hookData.session_id}:latest`
@@ -283,13 +321,14 @@ export class SnapshotHookProcessor {
     thresholdCheck: any,
     threshold: number
   ): string {
+    // Cumulative mode message (when changes are reverted)
     return `Operation reverted: LOC threshold exceeded!
 
-Project LOC status:
-  • Baseline: ${thresholdCheck.baseline} lines
-  • Current: ${thresholdCheck.current} lines  
-  • Change: ${thresholdCheck.delta >= 0 ? '+' : ''}${thresholdCheck.delta} lines
-  • Allowed: +${threshold} lines
+Session cumulative LOC status:
+  • Session start baseline: ${thresholdCheck.baseline} lines
+  • Would be after operation: ${thresholdCheck.current} lines  
+  • Change from baseline: ${thresholdCheck.delta >= 0 ? '+' : ''}${thresholdCheck.delta} lines
+  • Allowed cumulative change: +${threshold} lines
 
 The changes have been reverted to maintain the LOC limit.
 
@@ -298,5 +337,104 @@ Suggestions:
   • Use MultiEdit to batch additions with removals
   • Consider if all new code is truly necessary
   • Look for opportunities to consolidate duplicate code`
+  }
+
+  /**
+   * Check if the system is in snapshot mode
+   */
+  private isSnapshotMode(): boolean {
+    const config = this.configLoader.getConfig()
+    return config.enforcement.strategy === 'snapshot'
+  }
+
+  /**
+   * Handle PostToolUse in snapshot mode
+   * Validates against baseline threshold instead of cumulative stats
+   */
+  private async handleSnapshotModePostToolUse(hookData: HookData): Promise<ValidationResult> {
+    try {
+      // Get affected files from the operation
+      const affectedFiles = this.fileScanner.getAffectedFiles(hookData)
+      
+      // Take current snapshot after operation
+      const currentSnapshot = await this.snapshotManager.takePostOperationSnapshot(
+        hookData.session_id,
+        affectedFiles
+      )
+      
+      // Check against baseline threshold
+      const thresholdCheck = await this.snapshotManager.checkSnapshotThreshold(
+        hookData.session_id,
+        currentSnapshot.totalLoc
+      )
+      
+      // If threshold exceeded, we need to revert
+      if (thresholdCheck.exceeded) {
+        // Get the minimal pre-state for revert
+        const preData = await this.storage.get(
+          `snapshot:pre:${hookData.session_id}:minimal`
+        ) as any
+        
+        if (preData) {
+          // Reconstruct snapshot with Map
+          const preSnapshot = {
+            ...preData.snapshot,
+            files: new Map(preData.snapshot.files)
+          }
+          
+          // Revert to pre-operation state
+          const revertResult = await this.revertManager.revertToSnapshot(
+            affectedFiles,
+            preSnapshot
+          )
+          
+          if (!revertResult.success) {
+            return {
+              decision: 'block',
+              reason: `Operation reverted: LOC threshold exceeded!
+
+Baseline threshold: ${thresholdCheck.baseline} lines
+Current LOC: ${thresholdCheck.current} lines
+Exceeded by: ${thresholdCheck.delta} lines
+
+Failed to automatically revert: ${revertResult.error}
+Please manually revert the changes.`
+            }
+          }
+        }
+        
+        return {
+          decision: 'block',
+          reason: `Operation reverted: LOC threshold exceeded!
+
+Baseline threshold: ${thresholdCheck.baseline} lines
+Current LOC: ${thresholdCheck.current} lines
+Exceeded by: ${thresholdCheck.delta} lines
+
+The baseline threshold was set by 'ccguard snapshot'.
+To update the threshold, run 'ccguard snapshot' again.`
+        }
+      }
+      
+      // Update last valid snapshot
+      await this.snapshotManager.updateLastValidSnapshot(currentSnapshot)
+      
+      // Clean up minimal snapshot storage
+      await this.storage.delete(`snapshot:pre:${hookData.session_id}:minimal`)
+      
+      return {
+        decision: 'approve',
+        reason: `Operation completed successfully.
+
+Current LOC: ${thresholdCheck.current} lines
+Baseline threshold: ${thresholdCheck.baseline} lines`
+      }
+    } catch (error) {
+      console.error('Error in snapshot mode PostToolUse:', error)
+      return {
+        decision: 'approve',
+        reason: 'Post-operation validation failed, but changes were already applied',
+      }
+    }
   }
 }
