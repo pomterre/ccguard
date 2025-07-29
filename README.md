@@ -181,7 +181,8 @@ Customize CCGuard with `.ccguard.config.json` in your project root:
   "enforcement": {
     "mode": "session-wide",        // or "per-operation"
     "strategy": "cumulative",      // or "snapshot"
-    "ignoreEmptyLines": true
+    "ignoreEmptyLines": true,
+    "limitType": "hard"            // or "soft" (default: "hard")
   },
   "whitelist": {
     "patterns": [                  
@@ -211,11 +212,16 @@ Customize CCGuard with `.ccguard.config.json` in your project root:
   * `cumulative`: Traditional counting of changes (default)
   * `snapshot`: Project-wide snapshot tracking with automatic reversion
 
+* **Limit Type**:
+  * `hard`: Block and revert operations that exceed threshold (default)
+  * `soft`: Allow operations but provide warnings and guidance
+
 * **Thresholds**:
   * `allowedPositiveLines`: Buffer for positive changes (default: 0)
     * `0` = Strict net-negative enforcement
     * `10` = Allow up to +10 lines net change
     * Applies to both session-wide and per-operation modes
+    * With soft limits, operations are allowed but warned when exceeded
 
 * **Whitelist**: Skip files by pattern or extension
 

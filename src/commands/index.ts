@@ -5,6 +5,7 @@ export { StatusCommand } from './StatusCommand'
 export { ResetCommand } from './ResetCommand'
 export { VersionCommand } from './VersionCommand'
 export { SnapshotCommand } from './SnapshotCommand'
+export { ConfigCommand } from './ConfigCommand'
 
 import { EnableCommand } from './EnableCommand'
 import { DisableCommand } from './DisableCommand'
@@ -12,6 +13,7 @@ import { StatusCommand } from './StatusCommand'
 import { ResetCommand } from './ResetCommand'
 import { VersionCommand } from './VersionCommand'
 import { SnapshotCommand } from './SnapshotCommand'
+import { ConfigCommand } from './ConfigCommand'
 
 export const defaultCommands = [
   EnableCommand,
@@ -20,4 +22,5 @@ export const defaultCommands = [
   ResetCommand,
   VersionCommand,
   SnapshotCommand,
+  ConfigCommand,
 ]

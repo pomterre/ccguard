@@ -1,4 +1,4 @@
-import { SessionStats, GuardState } from '../contracts'
+import { SessionStats, GuardState, HotConfig, OperationHistory } from '../contracts'
 
 export interface Storage {
   // Session stats
@@ -8,6 +8,14 @@ export interface Storage {
   // Guard state
   getGuardState(): Promise<GuardState | null>
   saveGuardState(state: GuardState): Promise<void>
+  
+  // Hot configuration
+  getHotConfig(): Promise<HotConfig | null>
+  saveHotConfig(config: HotConfig): Promise<void>
+  
+  // Operation history
+  getOperationHistory(): Promise<OperationHistory | null>
+  saveOperationHistory(history: OperationHistory): Promise<void>
   
   // Generic storage
   get(key: string): Promise<any>

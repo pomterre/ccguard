@@ -86,6 +86,7 @@ export const GuardConfigSchema = z.object({
     mode: z.enum(['session-wide', 'per-operation']).default('session-wide'),
     strategy: z.enum(['cumulative', 'snapshot']).default('cumulative'),
     ignoreEmptyLines: z.boolean().default(true),
+    limitType: z.enum(['hard', 'soft']).optional().default('hard'), // Default to hard limit for backward compatibility
   }).default({
     mode: 'session-wide',
     strategy: 'cumulative',
@@ -101,6 +102,39 @@ export const GuardConfigSchema = z.object({
   thresholds: z.object({
     allowedPositiveLines: z.number().default(0),
   }).optional(),
+})
+
+// Hot config schema
+export const HotConfigSchema = z.object({
+  enforcement: z.object({
+    mode: z.enum(['session-wide', 'per-operation']).optional(),
+    strategy: z.enum(['cumulative', 'snapshot']).optional(),
+    limitType: z.enum(['hard', 'soft']).optional(),
+  }).optional(),
+  thresholds: z.object({
+    allowedPositiveLines: z.number().optional(),
+  }).optional(),
+  lastUpdated: z.string(),
+  sessionId: z.string().optional(),
+})
+
+// Operation record schema
+export const OperationRecordSchema = z.object({
+  timestamp: z.string(),
+  toolName: z.enum(['Edit', 'MultiEdit', 'Write']),
+  filePath: z.string(),
+  linesAdded: z.number(),
+  linesRemoved: z.number(),
+  netChange: z.number(),
+  decision: z.enum(['approve', 'block']),
+  reason: z.string().optional(),
+})
+
+// Operation history schema
+export const OperationHistorySchema = z.object({
+  records: z.array(OperationRecordSchema),
+  maxRecords: z.number(),
+  lastUpdated: z.string(),
 })
 
 // Type guards

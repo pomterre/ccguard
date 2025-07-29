@@ -3,7 +3,16 @@ import path from 'path'
 import os from 'os'
 import { appendFileSync, mkdirSync } from 'fs'
 import { Storage } from './Storage'
-import { SessionStats, GuardState, SessionStatsSchema, GuardStateSchema } from '../contracts'
+import { 
+  SessionStats, 
+  GuardState, 
+  HotConfig,
+  OperationHistory,
+  SessionStatsSchema, 
+  GuardStateSchema,
+  HotConfigSchema,
+  OperationHistorySchema
+} from '../contracts'
 
 // Debug logging - only enabled when CCGUARD_DEBUG environment variable is set
 const DEBUG = process.env.CCGUARD_DEBUG === 'true' || process.env.CCGUARD_DEBUG === '1'
@@ -23,6 +32,8 @@ export class FileStorage implements Storage {
   private dataDir: string
   private sessionStatsFile: string
   private guardStateFile: string
+  private hotConfigFile: string
+  private operationHistoryFile: string
   
   // Whitelist pattern for valid storage keys
   private static readonly VALID_KEY_PATTERN = /^[a-zA-Z0-9][a-zA-Z0-9-_:]*$/
@@ -35,6 +46,8 @@ export class FileStorage implements Storage {
     
     this.sessionStatsFile = path.join(this.dataDir, 'session-stats.json')
     this.guardStateFile = path.join(this.dataDir, 'ccguard-state.json')
+    this.hotConfigFile = path.join(this.dataDir, 'hot-config.json')
+    this.operationHistoryFile = path.join(this.dataDir, 'operation-history.json')
   }
 
   async ensureDir(): Promise<void> {
@@ -109,6 +122,60 @@ export class FileStorage implements Storage {
       }
       // Ignore errors
     }
+  }
+
+  async getHotConfig(): Promise<HotConfig | null> {
+    try {
+      const data = await fs.readFile(this.hotConfigFile, 'utf8')
+      const parsed = JSON.parse(data)
+      return HotConfigSchema.parse(parsed)
+    } catch (error) {
+      if (DEBUG) {
+        debugLog({ 
+          event: 'storage_error', 
+          method: 'getHotConfig',
+          file: this.hotConfigFile,
+          error: error instanceof Error ? error.message : String(error) 
+        })
+      }
+      return null
+    }
+  }
+
+  async saveHotConfig(config: HotConfig): Promise<void> {
+    await this.ensureDir()
+    await fs.writeFile(
+      this.hotConfigFile,
+      JSON.stringify(config, null, 2),
+      'utf8'
+    )
+  }
+
+  async getOperationHistory(): Promise<OperationHistory | null> {
+    try {
+      const data = await fs.readFile(this.operationHistoryFile, 'utf8')
+      const parsed = JSON.parse(data)
+      return OperationHistorySchema.parse(parsed)
+    } catch (error) {
+      if (DEBUG) {
+        debugLog({ 
+          event: 'storage_error', 
+          method: 'getOperationHistory',
+          file: this.operationHistoryFile,
+          error: error instanceof Error ? error.message : String(error) 
+        })
+      }
+      return null
+    }
+  }
+
+  async saveOperationHistory(history: OperationHistory): Promise<void> {
+    await this.ensureDir()
+    await fs.writeFile(
+      this.operationHistoryFile,
+      JSON.stringify(history, null, 2),
+      'utf8'
+    )
   }
 
   async get(key: string): Promise<any> {

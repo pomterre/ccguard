@@ -6,6 +6,7 @@ import { FileStorage } from '../storage/FileStorage'
 import { createValidator } from '../validation/validator'
 import { ValidationResult } from '../contracts'
 import { ConfigLoader } from '../config/ConfigLoader'
+import { GuardManager } from '../ccguard/GuardManager'
 import { appendFileSync, mkdirSync } from 'fs'
 import { join } from 'path'
 import { homedir } from 'os'
@@ -30,7 +31,10 @@ export async function run(
 ): Promise<ValidationResult> {
   const storage = new FileStorage(sessionId)
   const configLoader = new ConfigLoader()
-  const config = configLoader.getConfig()
+  
+  // Get config through GuardManager to support hot config
+  const guardManager = new GuardManager(storage, configLoader)
+  const config = await guardManager.getConfig()
   
   // Use snapshot processor if strategy is 'snapshot'
   if (config.enforcement.strategy === 'snapshot') {

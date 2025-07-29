@@ -10,6 +10,7 @@ export class ConfigLoader {
       mode: 'session-wide',
       strategy: 'cumulative',
       ignoreEmptyLines: true,
+      limitType: 'hard', // Default to hard limit for backward compatibility
     },
     whitelist: {
       patterns: [],

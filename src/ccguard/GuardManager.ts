@@ -1,16 +1,25 @@
 import { Storage } from '../storage/Storage'
-import { GuardState, SessionStats } from '../contracts'
+import { GuardState, SessionStats, HotConfig, OperationRecord, GuardConfig } from '../contracts'
 import { ConfigLoader } from '../config/ConfigLoader'
+import { HotConfigLoader } from '../config/HotConfigLoader'
 import { SnapshotManager } from '../snapshot/SnapshotManager'
+import { HistoryManager } from '../history/HistoryManager'
 
 export class GuardManager {
   private snapshotManager?: SnapshotManager
+  private hotConfigLoader?: HotConfigLoader
+  private historyManager: HistoryManager
   
   constructor(
     private storage: Storage,
     private configLoader?: ConfigLoader,
     private rootDir: string = process.cwd()
-  ) {}
+  ) {
+    this.historyManager = new HistoryManager(storage)
+    if (configLoader) {
+      this.hotConfigLoader = new HotConfigLoader(configLoader, storage)
+    }
+  }
 
   async isEnabled(): Promise<boolean> {
     const state = await this.storage.getGuardState()
@@ -117,5 +126,67 @@ export class GuardManager {
       )
     }
     return this.snapshotManager
+  }
+
+  /**
+   * Get the current configuration (including hot config overrides)
+   */
+  async getConfig(): Promise<GuardConfig> {
+    if (this.hotConfigLoader) {
+      return await this.hotConfigLoader.getConfig()
+    }
+    return this.configLoader?.getConfig() ?? {
+      enforcement: {
+        mode: 'session-wide',
+        strategy: 'cumulative',
+        ignoreEmptyLines: true,
+        limitType: 'hard'
+      },
+      whitelist: {
+        patterns: [],
+        extensions: []
+      },
+      thresholds: {
+        allowedPositiveLines: 0
+      }
+    }
+  }
+
+  /**
+   * Update hot configuration
+   */
+  async updateHotConfig(updates: Partial<HotConfig>): Promise<void> {
+    if (!this.hotConfigLoader) {
+      throw new Error('Hot config loader not initialized')
+    }
+    await this.hotConfigLoader.updateConfig(updates)
+  }
+
+  /**
+   * Get hot configuration
+   */
+  async getHotConfig(): Promise<HotConfig | null> {
+    return await this.storage.getHotConfig()
+  }
+
+  /**
+   * Add operation to history
+   */
+  async addOperationToHistory(record: Omit<OperationRecord, 'timestamp'>): Promise<void> {
+    await this.historyManager.addOperation(record)
+  }
+
+  /**
+   * Get recent operations from history
+   */
+  async getRecentOperations(limit?: number): Promise<OperationRecord[]> {
+    return await this.historyManager.getRecentOperations(limit)
+  }
+
+  /**
+   * Clear operation history
+   */
+  async clearHistory(): Promise<void> {
+    await this.historyManager.clearHistory()
   }
 }

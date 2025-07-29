@@ -40,15 +40,30 @@ export class Validator {
       context.operation.tool_input
     )
 
-    const config = this.configLoader.getConfig()
+    const config = await this.guardManager.getConfig() // Use hot config
     
     // Per-operation mode: check this operation only
     if (config.enforcement.mode === 'per-operation') {
       const threshold = config.thresholds?.allowedPositiveLines ?? 0
-      if (change.netChange > threshold) {
-        return this.createBlockResponse(change, null, true)
+      const decision = change.netChange > threshold ? 'block' : 'approve'
+      const result = decision === 'block' 
+        ? this.createBlockResponse(change, null, true)
+        : this.createApproveResponse(change, null, true)
+      
+      // Track operation in history
+      if (filePath) {
+        await this.guardManager.addOperationToHistory({
+          toolName: context.operation.tool_name,
+          filePath,
+          linesAdded: change.linesAdded,
+          linesRemoved: change.linesRemoved,
+          netChange: change.netChange,
+          decision,
+          reason: result.reason.split('\n')[0] // First line only
+        })
       }
-      return this.createApproveResponse(change, null, true)
+      
+      return result
     }
 
     // Session-wide mode: calculate what stats would be
@@ -63,17 +78,34 @@ export class Validator {
     projectedStats.netChange = projectedStats.totalLinesAdded - projectedStats.totalLinesRemoved
 
     const threshold = config.thresholds?.allowedPositiveLines ?? 0
-    if (projectedStats.netChange > threshold) {
-      return this.createBlockResponse(change, projectedStats)
+    const decision = projectedStats.netChange > threshold ? 'block' : 'approve'
+    
+    let result: ValidationResult
+    if (decision === 'block') {
+      result = this.createBlockResponse(change, projectedStats)
+    } else {
+      // Only update stats if approved
+      const updatedStats = await this.guardManager.updateSessionStats(
+        change.linesAdded,
+        change.linesRemoved
+      )
+      result = this.createApproveResponse(change, updatedStats)
+    }
+    
+    // Track operation in history
+    if (filePath) {
+      await this.guardManager.addOperationToHistory({
+        toolName: context.operation.tool_name,
+        filePath,
+        linesAdded: change.linesAdded,
+        linesRemoved: change.linesRemoved,
+        netChange: change.netChange,
+        decision,
+        reason: result.reason.split('\n')[0] // First line only
+      })
     }
 
-    // Only update stats if approved
-    const updatedStats = await this.guardManager.updateSessionStats(
-      change.linesAdded,
-      change.linesRemoved
-    )
-
-    return this.createApproveResponse(change, updatedStats)
+    return result
   }
 
   private getFilePath(operation: any): string | null {

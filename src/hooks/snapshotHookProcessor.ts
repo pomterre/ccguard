@@ -257,36 +257,85 @@ export class SnapshotHookProcessor {
       // Check threshold based on session stats
       const config = this.configLoader.getConfig()
       const threshold = config.thresholds?.allowedPositiveLines ?? 0
+      const isHardLimit = config.enforcement.limitType !== 'soft'
       
       if (projectedNetChange > threshold) {
-        // Threshold would be exceeded - revert to pre-operation state
-        // If affectedFiles is empty, use the files that actually changed from operationDiff
-        const filesToRevert = affectedFiles.length > 0 
-          ? affectedFiles 
-          : Array.from(operationDiff.details.keys())
-        
-        const revertResult = await this.revertManager.revertToSnapshot(
-          filesToRevert,
-          preSnapshot
-        )
-        
-        if (!revertResult.success) {
+        // Threshold exceeded - handle based on limit type
+        if (isHardLimit) {
+          // Hard limit: revert changes
+          // If affectedFiles is empty, use the files that actually changed from operationDiff
+          const filesToRevert = affectedFiles.length > 0 
+            ? affectedFiles 
+            : Array.from(operationDiff.details.keys())
+          
+          const revertResult = await this.revertManager.revertToSnapshot(
+            filesToRevert,
+            preSnapshot
+          )
+          
+          if (!revertResult.success) {
+            return {
+              decision: 'block',
+              reason: `LOC threshold exceeded (session would have: +${projectedNetChange} lines, allowed: +${threshold} lines).\n\nFailed to revert: ${revertResult.error}\n\nPlease manually revert the changes.`,
+            }
+          }
+          
+          // Track blocked operation in history
+          const toolInput = hookData.tool_input as any
+          if (toolInput?.file_path) {
+            await this.guardManager.addOperationToHistory({
+              toolName: hookData.tool_name as 'Edit' | 'MultiEdit' | 'Write',
+              filePath: toolInput.file_path,
+              linesAdded,
+              linesRemoved,
+              netChange: operationDiff.locDelta,
+              decision: 'block',
+              reason: 'LOC threshold exceeded - changes reverted'
+            })
+          }
+          
+          // Use baseline comparison for the error message (for display purposes)
+          const thresholdCheck = await this.snapshotManager.checkThreshold(
+            hookData.session_id,
+            postSnapshot,
+            threshold
+          )
+          
           return {
             decision: 'block',
-            reason: `LOC threshold exceeded (session would have: +${projectedNetChange} lines, allowed: +${threshold} lines).\n\nFailed to revert: ${revertResult.error}\n\nPlease manually revert the changes.`,
+            reason: this.createThresholdExceededMessage(thresholdCheck, threshold),
           }
-        }
-        
-        // Use baseline comparison for the error message (for display purposes)
-        const thresholdCheck = await this.snapshotManager.checkThreshold(
-          hookData.session_id,
-          postSnapshot,
-          threshold
-        )
-        
-        return {
-          decision: 'block',
-          reason: this.createThresholdExceededMessage(thresholdCheck, threshold),
+        } else {
+          // Soft limit: allow but provide guidance
+          // Update session stats even though limit exceeded
+          await this.guardManager.updateSessionStats(linesAdded, linesRemoved)
+          
+          // Track soft limit violation in history
+          const toolInput = hookData.tool_input as any
+          if (toolInput?.file_path) {
+            await this.guardManager.addOperationToHistory({
+              toolName: hookData.tool_name as 'Edit' | 'MultiEdit' | 'Write',
+              filePath: toolInput.file_path,
+              linesAdded,
+              linesRemoved,
+              netChange: operationDiff.locDelta,
+              decision: 'approve',
+              reason: 'Soft limit exceeded - operation allowed with warning'
+            })
+          }
+          
+          // Create cumulative stats info for the warning message
+          const cumulativeInfo = {
+            baseline: sessionStats.totalLinesAdded - sessionStats.totalLinesRemoved,
+            current: projectedNetChange,
+            delta: projectedNetChange,
+            exceeded: true
+          }
+          
+          return {
+            decision: 'approve',
+            reason: this.createSoftLimitExceededMessage(cumulativeInfo, threshold, operationDiff, sessionStats, projectedNetChange),
+          }
         }
       }
       
@@ -298,6 +347,20 @@ export class SnapshotHookProcessor {
       
       // Get updated session stats
       const updatedStats = await this.guardManager.getSessionStats()
+      
+      // Track operation in history
+      const toolInput = hookData.tool_input as any
+      if (toolInput?.file_path) {
+        await this.guardManager.addOperationToHistory({
+          toolName: hookData.tool_name as 'Edit' | 'MultiEdit' | 'Write',
+          filePath: toolInput.file_path,
+          linesAdded,
+          linesRemoved,
+          netChange: operationDiff.locDelta,
+          decision: 'approve',
+          reason: 'Operation completed successfully'
+        })
+      }
       
       return {
         decision: 'approve',
@@ -339,6 +402,94 @@ Suggestions:
   • Look for opportunities to consolidate duplicate code`
   }
 
+  private createSoftLimitExceededMessage(
+    thresholdCheck: any,
+    threshold: number,
+    operationDiff: any,
+    sessionStats?: any,
+    projectedNetChange?: number
+  ): string {
+    // For cumulative mode, use session stats if provided
+    const isSessionMode = sessionStats !== undefined && projectedNetChange !== undefined
+    const violationAmount = isSessionMode ? projectedNetChange - threshold : thresholdCheck.delta - threshold
+    const entries = Array.from(operationDiff.details.entries()) as Array<[string, {before: number, after: number, delta: number}]>
+    const filesWithAdditions = entries
+      .filter(([, diff]) => diff.delta > 0)
+      .sort(([, a], [, b]) => b.delta - a.delta)
+      .slice(0, 3)
+      .map(([path, diff]) => `    • ${path}: +${diff.delta} lines`)
+      .join('\n')
+
+    if (isSessionMode) {
+      // Cumulative mode message
+      const sessionStart = 0 // Sessions start at 0
+      return `⚠️ SOFT LIMIT EXCEEDED - Operation completed with warning
+
+LOC threshold violation detected:
+  • Session baseline: ${sessionStart} lines
+  • Current total: ${projectedNetChange} lines  
+  • Net change: +${projectedNetChange} lines
+  • Allowed limit: +${threshold} lines
+  • Exceeded by: +${violationAmount} lines
+
+Operation changes:
+  • This operation: ${operationDiff.locDelta >= 0 ? '+' : ''}${operationDiff.locDelta} lines
+  • Files modified: ${operationDiff.details.size}
+${filesWithAdditions ? '\nLargest additions:\n' + filesWithAdditions : ''}
+
+🎯 RECOMMENDED ACTIONS:
+1. Consider refactoring to reduce the added lines
+2. Look for opportunities to remove unused code
+3. Review if all new functionality is essential
+4. Use 'ccguard reset' if you need to reset session tracking
+
+ℹ️ The operation was allowed to complete, but please address this violation to maintain code quality.`
+    } else {
+      // Snapshot mode message (original)
+      return `⚠️ SOFT LIMIT EXCEEDED - Operation completed with warning
+
+LOC threshold violation detected:
+  • Session baseline: ${thresholdCheck.baseline} lines
+  • Current total: ${thresholdCheck.current} lines
+  • Net change: ${thresholdCheck.delta >= 0 ? '+' : ''}${thresholdCheck.delta} lines
+  • Allowed limit: +${threshold} lines
+  • Exceeded by: +${violationAmount} lines
+
+Operation changes:
+  • This operation: ${operationDiff.locDelta >= 0 ? '+' : ''}${operationDiff.locDelta} lines
+  • Files modified: ${operationDiff.details.size}
+${filesWithAdditions ? '\nLargest additions:\n' + filesWithAdditions : ''}
+
+🎯 RECOMMENDED ACTIONS:
+1. Consider refactoring to reduce the added lines
+2. Look for opportunities to remove unused code
+3. Review if all new functionality is essential
+4. Use 'ccguard reset' if you need to reset session tracking
+
+ℹ️ The operation was allowed to complete, but please address this violation to maintain code quality.`
+    }
+  }
+
+  private createSnapshotSoftLimitMessage(
+    thresholdCheck: any
+  ): string {
+    return `⚠️ SOFT LIMIT EXCEEDED - Operation completed with warning
+
+Snapshot mode LOC threshold violation:
+  • Baseline threshold: ${thresholdCheck.baseline} lines
+  • Current LOC: ${thresholdCheck.current} lines
+  • Exceeded by: ${thresholdCheck.delta} lines
+
+🎯 RECOMMENDED ACTIONS:
+1. Refactor existing code to reduce overall LOC
+2. Remove unused or redundant code
+3. Consider if all additions are necessary
+4. Run 'ccguard snapshot' to update the baseline if the increase is justified
+
+ℹ️ The operation was allowed to complete, but the codebase now exceeds the baseline threshold.
+In snapshot mode, the baseline represents your target maximum LOC.`
+  }
+
   /**
    * Check if the system is in snapshot mode
    */
@@ -368,30 +519,36 @@ Suggestions:
         currentSnapshot.totalLoc
       )
       
-      // If threshold exceeded, we need to revert
+      // Get config to check limit type
+      const config = this.configLoader.getConfig()
+      const isHardLimit = config.enforcement.limitType !== 'soft'
+      
+      // If threshold exceeded, handle based on limit type
       if (thresholdCheck.exceeded) {
-        // Get the minimal pre-state for revert
-        const preData = await this.storage.get(
-          `snapshot:pre:${hookData.session_id}:minimal`
-        ) as any
-        
-        if (preData) {
-          // Reconstruct snapshot with Map
-          const preSnapshot = {
-            ...preData.snapshot,
-            files: new Map(preData.snapshot.files)
-          }
+        if (isHardLimit) {
+          // Hard limit: revert changes
+          // Get the minimal pre-state for revert
+          const preData = await this.storage.get(
+            `snapshot:pre:${hookData.session_id}:minimal`
+          ) as any
           
-          // Revert to pre-operation state
-          const revertResult = await this.revertManager.revertToSnapshot(
-            affectedFiles,
-            preSnapshot
-          )
-          
-          if (!revertResult.success) {
-            return {
-              decision: 'block',
-              reason: `Operation reverted: LOC threshold exceeded!
+          if (preData) {
+            // Reconstruct snapshot with Map
+            const preSnapshot = {
+              ...preData.snapshot,
+              files: new Map(preData.snapshot.files)
+            }
+            
+            // Revert to pre-operation state
+            const revertResult = await this.revertManager.revertToSnapshot(
+              affectedFiles,
+              preSnapshot
+            )
+            
+            if (!revertResult.success) {
+              return {
+                decision: 'block',
+                reason: `Operation reverted: LOC threshold exceeded!
 
 Baseline threshold: ${thresholdCheck.baseline} lines
 Current LOC: ${thresholdCheck.current} lines
@@ -399,13 +556,27 @@ Exceeded by: ${thresholdCheck.delta} lines
 
 Failed to automatically revert: ${revertResult.error}
 Please manually revert the changes.`
+              }
             }
           }
-        }
-        
-        return {
-          decision: 'block',
-          reason: `Operation reverted: LOC threshold exceeded!
+          
+          // Track blocked operation in history
+          const toolInput = hookData.tool_input as any
+          if (toolInput?.file_path) {
+            await this.guardManager.addOperationToHistory({
+              toolName: hookData.tool_name as 'Edit' | 'MultiEdit' | 'Write',
+              filePath: toolInput.file_path,
+              linesAdded: 0, // In snapshot mode, we don't track individual operation changes
+              linesRemoved: 0,
+              netChange: thresholdCheck.delta,
+              decision: 'block',
+              reason: 'Snapshot threshold exceeded - changes reverted'
+            })
+          }
+          
+          return {
+            decision: 'block',
+            reason: `Operation reverted: LOC threshold exceeded!
 
 Baseline threshold: ${thresholdCheck.baseline} lines
 Current LOC: ${thresholdCheck.current} lines
@@ -413,11 +584,52 @@ Exceeded by: ${thresholdCheck.delta} lines
 
 The baseline threshold was set by 'ccguard snapshot'.
 To update the threshold, run 'ccguard snapshot' again.`
+          }
+        } else {
+          // Soft limit: allow but provide guidance
+          // Update last valid snapshot even though limit exceeded
+          await this.snapshotManager.updateLastValidSnapshot(currentSnapshot)
+          
+          // Track soft limit violation in history
+          const toolInput = hookData.tool_input as any
+          if (toolInput?.file_path) {
+            await this.guardManager.addOperationToHistory({
+              toolName: hookData.tool_name as 'Edit' | 'MultiEdit' | 'Write',
+              filePath: toolInput.file_path,
+              linesAdded: 0, // In snapshot mode, we track overall LOC
+              linesRemoved: 0,
+              netChange: thresholdCheck.delta,
+              decision: 'approve',
+              reason: 'Snapshot soft limit exceeded - operation allowed with warning'
+            })
+          }
+          
+          // Clean up minimal snapshot storage
+          await this.storage.delete(`snapshot:pre:${hookData.session_id}:minimal`)
+          
+          return {
+            decision: 'approve',
+            reason: this.createSnapshotSoftLimitMessage(thresholdCheck),
+          }
         }
       }
       
       // Update last valid snapshot
       await this.snapshotManager.updateLastValidSnapshot(currentSnapshot)
+      
+      // Track approved operation in history
+      const toolInput = hookData.tool_input as any
+      if (toolInput?.file_path) {
+        await this.guardManager.addOperationToHistory({
+          toolName: hookData.tool_name as 'Edit' | 'MultiEdit' | 'Write',
+          filePath: toolInput.file_path,
+          linesAdded: 0, // In snapshot mode, we track overall LOC
+          linesRemoved: 0,
+          netChange: 0, // No net change from baseline
+          decision: 'approve',
+          reason: 'Operation completed successfully within snapshot limits'
+        })
+      }
       
       // Clean up minimal snapshot storage
       await this.storage.delete(`snapshot:pre:${hookData.session_id}:minimal`)

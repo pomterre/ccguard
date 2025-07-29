@@ -77,6 +77,7 @@ export interface GuardConfig {
     mode: 'session-wide' | 'per-operation'
     strategy: 'cumulative' | 'snapshot'
     ignoreEmptyLines: boolean
+    limitType?: 'hard' | 'soft' // New field for limit type
   }
   whitelist: {
     patterns: string[]
@@ -85,4 +86,36 @@ export interface GuardConfig {
   thresholds?: {
     allowedPositiveLines: number
   }
+}
+
+export interface HotConfig {
+  // Overrides for GuardConfig
+  enforcement?: {
+    mode?: 'session-wide' | 'per-operation'
+    strategy?: 'cumulative' | 'snapshot'
+    limitType?: 'hard' | 'soft'
+  }
+  thresholds?: {
+    allowedPositiveLines?: number
+  }
+  // Metadata
+  lastUpdated: string
+  sessionId?: string
+}
+
+export interface OperationRecord {
+  timestamp: string
+  toolName: 'Edit' | 'MultiEdit' | 'Write'
+  filePath: string
+  linesAdded: number
+  linesRemoved: number
+  netChange: number
+  decision: 'approve' | 'block'
+  reason?: string
+}
+
+export interface OperationHistory {
+  records: OperationRecord[]
+  maxRecords: number
+  lastUpdated: string
 }
