@@ -119,3 +119,8 @@ export interface OperationHistory {
   maxRecords: number
   lastUpdated: string
 }
+
+export interface LockedFiles {
+  files: string[] // Array of absolute file paths
+  lastUpdated: string
+}

@@ -137,6 +137,12 @@ export const OperationHistorySchema = z.object({
   lastUpdated: z.string(),
 })
 
+// Locked files schema
+export const LockedFilesSchema = z.object({
+  files: z.array(z.string()),
+  lastUpdated: z.string(),
+})
+
 // Type guards
 export const isEditOperation = (op: { tool_name: string }): boolean =>
   op.tool_name === 'Edit'

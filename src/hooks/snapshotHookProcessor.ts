@@ -111,6 +111,18 @@ export class SnapshotHookProcessor {
 
   private async handlePreToolUse(hookData: HookData): Promise<ValidationResult> {
     try {
+      // Check if any files are locked first (applies to all modes)
+      const filePath = this.getFilePath(hookData)
+      if (filePath) {
+        const isLocked = await this.guardManager.isFileLocked(filePath)
+        if (isLocked) {
+          return {
+            decision: 'block',
+            reason: `File is locked and cannot be modified: ${filePath}\n\nTo unlock this file, use: ccguard unlock @${filePath}`,
+          }
+        }
+      }
+
       // In snapshot mode, we don't need full pre-operation snapshots
       if (this.isSnapshotMode()) {
         // Ensure baseline exists for the session
@@ -648,5 +660,10 @@ Baseline threshold: ${thresholdCheck.baseline} lines`
         reason: 'Post-operation validation failed, but changes were already applied',
       }
     }
+  }
+
+  private getFilePath(hookData: HookData): string | null {
+    const input = hookData.tool_input as any
+    return input?.file_path ?? null
   }
 }

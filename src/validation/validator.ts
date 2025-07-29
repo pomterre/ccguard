@@ -25,8 +25,19 @@ export class Validator {
       }
     }
 
-    // Check if file is whitelisted
+    // Check if file is locked
     const filePath = this.getFilePath(context.operation)
+    if (filePath) {
+      const isLocked = await this.guardManager.isFileLocked(filePath)
+      if (isLocked) {
+        return {
+          decision: 'block',
+          reason: `File is locked and cannot be modified: ${filePath}\n\nTo unlock this file, use: ccguard unlock @${filePath}`,
+        }
+      }
+    }
+
+    // Check if file is whitelisted
     if (filePath && this.configLoader.isFileWhitelisted(filePath)) {
       return {
         decision: 'approve',

@@ -6,6 +6,8 @@
 **Automated enforcement of net-negative LOC, complexity constraints, and quality standards for Claude code**
 
 > 📌 **New in v0.1.4**: The [Snapshot Strategy](#snapshot-strategy-recommended-as-of-v014) is now the recommended approach for more robust session-wide LOC tracking.
+> 
+> 🔒 **New**: File locking feature to protect critical files from any modifications.
 
 ---
 
@@ -34,6 +36,7 @@
 * **Promotes Refactoring**: Encourages rethinking and optimizing existing code
 * **Progress Insights**: Provides real-time session statistics
 * **Easy Control**: Simple toggling for flexible enforcement
+* **File Protection**: Lock critical files to prevent accidental modifications
 
 ---
 
@@ -122,6 +125,35 @@ ccguard off     # Disable enforcement
 ccguard status  # Show status and LOC statistics
 ccguard reset   # Reset session statistics
 ccguard version # Show CCGuard version (aliases: v, --version, -v)
+```
+
+### 3️⃣ File Locking (New)
+
+Protect critical files from any modifications with file locking:
+
+```bash
+ccguard lock @src/core/auth.ts    # Lock a file from modifications
+ccguard unlock @src/core/auth.ts  # Unlock to allow modifications
+ccguard locks                     # List all locked files
+```
+
+Key features:
+- **@ Prefix Required**: File paths must start with @ to differentiate from other commands
+- **Path Flexibility**: Supports both relative and absolute paths
+- **Session Persistent**: Locked files remain locked across Claude sessions
+- **Clear Errors**: Blocked operations show which file is locked and how to unlock
+
+Example workflow:
+```bash
+# Lock critical configuration
+ccguard lock @config/production.json
+
+# Claude attempts to edit will be blocked with:
+# "File is locked and cannot be modified: /project/config/production.json
+#  To unlock this file, use: ccguard unlock @/project/config/production.json"
+
+# When ready to modify
+ccguard unlock @config/production.json
 ```
 
 ---

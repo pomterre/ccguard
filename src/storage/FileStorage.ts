@@ -8,10 +8,12 @@ import {
   GuardState, 
   HotConfig,
   OperationHistory,
+  LockedFiles,
   SessionStatsSchema, 
   GuardStateSchema,
   HotConfigSchema,
-  OperationHistorySchema
+  OperationHistorySchema,
+  LockedFilesSchema
 } from '../contracts'
 
 // Debug logging - only enabled when CCGUARD_DEBUG environment variable is set
@@ -34,6 +36,7 @@ export class FileStorage implements Storage {
   private guardStateFile: string
   private hotConfigFile: string
   private operationHistoryFile: string
+  private lockedFilesFile: string
   
   // Whitelist pattern for valid storage keys
   private static readonly VALID_KEY_PATTERN = /^[a-zA-Z0-9][a-zA-Z0-9-_:]*$/
@@ -48,6 +51,7 @@ export class FileStorage implements Storage {
     this.guardStateFile = path.join(this.dataDir, 'ccguard-state.json')
     this.hotConfigFile = path.join(this.dataDir, 'hot-config.json')
     this.operationHistoryFile = path.join(this.dataDir, 'operation-history.json')
+    this.lockedFilesFile = path.join(this.dataDir, 'locked-files.json')
   }
 
   async ensureDir(): Promise<void> {
@@ -174,6 +178,33 @@ export class FileStorage implements Storage {
     await fs.writeFile(
       this.operationHistoryFile,
       JSON.stringify(history, null, 2),
+      'utf8'
+    )
+  }
+
+  async getLockedFiles(): Promise<LockedFiles | null> {
+    try {
+      const data = await fs.readFile(this.lockedFilesFile, 'utf8')
+      const parsed = JSON.parse(data)
+      return LockedFilesSchema.parse(parsed)
+    } catch (error) {
+      if (DEBUG) {
+        debugLog({ 
+          event: 'storage_error', 
+          method: 'getLockedFiles',
+          file: this.lockedFilesFile,
+          error: error instanceof Error ? error.message : String(error) 
+        })
+      }
+      return null
+    }
+  }
+
+  async saveLockedFiles(lockedFiles: LockedFiles): Promise<void> {
+    await this.ensureDir()
+    await fs.writeFile(
+      this.lockedFilesFile,
+      JSON.stringify(lockedFiles, null, 2),
       'utf8'
     )
   }

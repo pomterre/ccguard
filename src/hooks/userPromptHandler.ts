@@ -19,21 +19,21 @@ export class UserPromptHandler {
         return null
       }
 
-      const prompt = result.data.prompt.trim().toLowerCase()
+      const prompt = result.data.prompt.trim()
       
-      // Check if this is a ccguard command
-      if (!prompt.startsWith('ccguard ')) {
+      // Check if this is a ccguard command (case insensitive)
+      if (!prompt.toLowerCase().startsWith('ccguard ')) {
         return null
       }
 
-      // Parse command and args
+      // Parse command and args - preserve original case for arguments
       const parts = prompt.split(' ').filter(p => p.length > 0)
       if (parts.length < 2) {
         return null
       }
 
-      const commandName = parts[1]
-      const args = parts.slice(2)
+      const commandName = parts[1].toLowerCase() // Only lowercase the command name
+      const args = parts.slice(2) // Keep original case for arguments
 
       // Find and execute command
       const command = this.commandRegistry.get(commandName)

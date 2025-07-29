@@ -4,6 +4,7 @@ import { ConfigLoader } from '../config/ConfigLoader'
 import { HotConfigLoader } from '../config/HotConfigLoader'
 import { SnapshotManager } from '../snapshot/SnapshotManager'
 import { HistoryManager } from '../history/HistoryManager'
+import * as path from 'path'
 
 export class GuardManager {
   private snapshotManager?: SnapshotManager
@@ -188,5 +189,75 @@ export class GuardManager {
    */
   async clearHistory(): Promise<void> {
     await this.historyManager.clearHistory()
+  }
+
+  /**
+   * Lock a file from modifications
+   */
+  async lockFile(filePath: string): Promise<void> {
+    // Normalize the file path to absolute
+    const absolutePath = path.isAbsolute(filePath) ? filePath : path.resolve(process.cwd(), filePath)
+    
+    const lockedFiles = await this.storage.getLockedFiles()
+    const files = lockedFiles?.files ?? []
+    
+    // Check if already locked
+    if (files.includes(absolutePath)) {
+      throw new Error(`File is already locked: ${absolutePath}`)
+    }
+    
+    // Add to locked files
+    files.push(absolutePath)
+    
+    await this.storage.saveLockedFiles({
+      files,
+      lastUpdated: new Date().toISOString(),
+    })
+  }
+
+  /**
+   * Unlock a file
+   */
+  async unlockFile(filePath: string): Promise<void> {
+    // Normalize the file path to absolute
+    const absolutePath = path.isAbsolute(filePath) ? filePath : path.resolve(process.cwd(), filePath)
+    
+    const lockedFiles = await this.storage.getLockedFiles()
+    const files = lockedFiles?.files ?? []
+    
+    // Check if file is locked
+    const index = files.indexOf(absolutePath)
+    if (index === -1) {
+      throw new Error(`File is not locked: ${absolutePath}`)
+    }
+    
+    // Remove from locked files
+    files.splice(index, 1)
+    
+    await this.storage.saveLockedFiles({
+      files,
+      lastUpdated: new Date().toISOString(),
+    })
+  }
+
+  /**
+   * Check if a file is locked
+   */
+  async isFileLocked(filePath: string): Promise<boolean> {
+    // Normalize the file path to absolute
+    const absolutePath = path.isAbsolute(filePath) ? filePath : path.resolve(process.cwd(), filePath)
+    
+    const lockedFiles = await this.storage.getLockedFiles()
+    const files = lockedFiles?.files ?? []
+    
+    return files.includes(absolutePath)
+  }
+
+  /**
+   * Get all locked files
+   */
+  async getLockedFiles(): Promise<string[]> {
+    const lockedFiles = await this.storage.getLockedFiles()
+    return lockedFiles?.files ?? []
   }
 }

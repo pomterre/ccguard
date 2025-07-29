@@ -1,11 +1,12 @@
 import { Storage } from './Storage'
-import { SessionStats, GuardState, HotConfig, OperationHistory } from '../contracts'
+import { SessionStats, GuardState, HotConfig, OperationHistory, LockedFiles } from '../contracts'
 
 export class MemoryStorage implements Storage {
   private sessionStats: SessionStats | null = null
   private guardState: GuardState | null = null
   private hotConfig: HotConfig | null = null
   private operationHistory: OperationHistory | null = null
+  private lockedFiles: LockedFiles | null = null
   private data: Map<string, any> = new Map()
 
   async getSessionStats(): Promise<SessionStats | null> {
@@ -40,11 +41,20 @@ export class MemoryStorage implements Storage {
     this.operationHistory = history
   }
 
+  async getLockedFiles(): Promise<LockedFiles | null> {
+    return this.lockedFiles
+  }
+
+  async saveLockedFiles(lockedFiles: LockedFiles): Promise<void> {
+    this.lockedFiles = lockedFiles
+  }
+
   async clearAll(): Promise<void> {
     this.sessionStats = null
     this.guardState = null
     this.hotConfig = null
     this.operationHistory = null
+    this.lockedFiles = null
     this.data.clear()
   }
 
