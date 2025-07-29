@@ -242,6 +242,9 @@ export class SnapshotManager {
       return snapshot
     }
 
+    // Restore last valid snapshot from storage if not already in memory
+    await this.restoreLastValidSnapshot(sessionId)
+
     // Scan affected files plus any new files
     const allFiles = [...new Set([
       ...affectedFiles,
@@ -553,5 +556,26 @@ export class SnapshotManager {
     }
     
     return newFiles
+  }
+
+  /**
+   * Restore last valid snapshot from storage if not already loaded
+   */
+  private async restoreLastValidSnapshot(sessionId: string): Promise<void> {
+    if (this.lastValidSnapshot) {
+      return
+    }
+
+    const stored = await this.storage.get(`snapshot:lastvalid:${sessionId}`)
+    if (stored && typeof stored === 'object' && 'snapshot' in stored) {
+      this.lastValidSnapshot = this.fromSerializable(stored.snapshot)
+      debugLog({
+        event: 'last_valid_snapshot_restored',
+        sessionId: sessionId,
+        snapshotId: this.lastValidSnapshot.id,
+        totalLoc: this.lastValidSnapshot.totalLoc,
+        restoredFrom: 'storage',
+      })
+    }
   }
 }
